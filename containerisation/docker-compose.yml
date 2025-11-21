@@ -1,0 +1,69 @@
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: daily-journal-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-localDbUser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-localDbPassword}
+      POSTGRES_DB: ${DB_NAME:-journal_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-localDbUser} -d ${DB_NAME:-journal_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: containerisation/Dockerfile
+    container_name: daily-journal-backend
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-localDbUser}
+      DB_PASSWORD: ${DB_PASSWORD:-localDbPassword}
+      DB_NAME: ${DB_NAME:-journal_db}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../backend/src:/app/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 60s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    command: poetry run uvicorn api.routes.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: containerisation/Dockerfile
+    container_name: daily-journal-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../frontend/src:/app/src
+      - ../frontend/index.html:/app/index.html
+      - ../frontend/vite.config.ts:/app/vite.config.ts
+      - ../frontend/tailwind.config.js:/app/tailwind.config.js
+      - ../frontend/postcss.config.js:/app/postcss.config.js
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_API_BACKEND_URL=http://backend:8000
+
+volumes:
+  postgres_data:
+

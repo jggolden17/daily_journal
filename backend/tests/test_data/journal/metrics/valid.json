@@ -1,0 +1,17 @@
+[
+  {
+    "thread_id": "660e8400-e29b-41d4-a716-446655440000",
+    "asleep_by": "2024-01-15T22:30:00Z",
+    "awoke_at": "2024-01-16T07:00:00Z",
+    "sleep_quality": 8.5,
+    "physical_activity": 45.0,
+    "overall_mood": 7.0,
+    "hours_paid_work": 8.0,
+    "hours_personal_work": 2.0,
+    "additional_metrics": {
+      "water_intake": 8,
+      "steps": 10000
+    }
+  }
+]
+
