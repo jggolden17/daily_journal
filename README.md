@@ -11,8 +11,8 @@ I used to use a simple google-sheet for tracking various metrics & capturing sho
 - **View summaries of metrics** in some date-range, with avgs., projections, etc.
 
 ### Planned extensions (major TODOs)
+- fix tests for backend (broken when I added in auth)
 - deploy in GCP: currently only set up for local dev
-    - auth on front/backend (currently placeholder only)
 - set up metrics page to be more extensive than simple charts
 - simple gen-ai features:
     - talking to a LLM with context of previous N-days' entries plus some summary of earlier entries
