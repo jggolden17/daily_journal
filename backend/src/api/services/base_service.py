@@ -1,6 +1,6 @@
 import datetime as dt
 import uuid
-from typing import TypeVar, Callable, Generic, Sequence, Iterable
+from typing import Any, TypeVar, Callable, Generic, Sequence, Iterable
 from api.utils.logger import log
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,7 +62,22 @@ class BaseService(
                 code=404,
             )
 
-    async def read(
+    async def get_one_or_none_by_id(
+        self,
+        id: uuid.UUID,
+    ) -> TModel | None:
+        data_manager_inst = self.data_manager(self.session, self.model)
+        return await data_manager_inst.get_one_or_none_by_id(id)
+
+    async def get_one_or_none(
+        self,
+        column_name: str,
+        value: Any,
+    ) -> TModel | None:
+        data_manager_inst = self.data_manager(self.session, self.model)
+        return await data_manager_inst.get_one_or_none_generic(column_name, value)
+
+    async def get_all_paginated(
         self,
         ids: Sequence[uuid.UUID] | None,
         page_params: PageParams,

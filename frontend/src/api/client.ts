@@ -1,3 +1,5 @@
+import { tokenStorage } from './auth';
+
 const API_BASE_URL = '/api';
 
 export interface ApiError {
@@ -11,27 +13,32 @@ async function request<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const config: RequestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
+  const token = tokenStorage.get();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
   };
 
-  // TODO: Add auth token to headers when implementing real auth
-  // const token = getAuthToken();
-  // if (token) {
-  //   config.headers = {
-  //     ...config.headers,
-  //     Authorization: `Bearer ${token}`,
-  //   };
-  // }
+  // Add auth token to headers if available
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  const config: RequestInit = {
+    ...options,
+    headers,
+  };
 
   try {
     const response = await fetch(url, config);
     
     if (!response.ok) {
+      // Handle 401 Unauthorized - clear token and redirect to login
+      if (response.status === 401) {
+        tokenStorage.remove();
+        // Don't redirect here - let the component handle it
+      }
+      
       const error: ApiError = {
         message: `HTTP error! status: ${response.status}`,
         status: response.status,

@@ -12,3 +12,11 @@ DB_PASSWORD = os.environ.get("DB_PASSWORD", "localDbPassword")
 DB_NAME = os.environ.get("DB_NAME", "journal_db")
 
 CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
+
+# auth config
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "")
+JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.environ.get("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+)

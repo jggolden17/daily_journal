@@ -12,6 +12,7 @@ from api.api_schemas.generic import (
 )
 from api.db.base_data_manager import DataValidationError
 from api.db.database import DBSessionDep
+from api.middleware.auth import CurrentUser
 from api.routes.route_prefix import THREADS_URL
 from api.routes.route_types import OptionalUUIDList, RequiredUUIDList
 from api.services.journal.threads import ThreadsService
@@ -29,13 +30,14 @@ router = APIRouter(prefix="/" + THREADS_URL)
 @router.get("", response_model=PaginatedResponse[ThreadSchema])
 async def get_data(
     session: DBSessionDep,
+    current_user: CurrentUser,
     ids: OptionalUUIDList = None,
     page_params: PageParams = Depends(validate_page_params),
     sort_params: SortParams = Depends(validate_sort_params),
 ) -> PaginatedResponse[list[ThreadSchema]]:
     """get (with pagination)"""
     try:
-        data, total_records = await ThreadsService(session).read(
+        data, total_records = await ThreadsService(session).get_all_paginated(
             ids,
             page_params,
             sort_params,
@@ -52,6 +54,7 @@ async def get_data(
 async def create_data(
     threads: list[ThreadCreateSchema],
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> SingleItemResponse[list[ThreadSchema]]:
     """create"""
     try:
@@ -68,6 +71,7 @@ async def create_data(
 async def update_data(
     threads: list[ThreadPatchSchema],
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> SingleItemResponse[list[ThreadSchema]]:
     """update"""
     try:
@@ -89,6 +93,7 @@ async def update_data(
 async def upsert_data(
     threads: list[ThreadUpsertSchema],
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> SingleItemResponse[list[ThreadSchema]]:
     """upsert"""
     try:
@@ -114,6 +119,7 @@ async def upsert_data(
 async def delete_data(
     ids: RequiredUUIDList,
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> None:
     """delete"""
     try:

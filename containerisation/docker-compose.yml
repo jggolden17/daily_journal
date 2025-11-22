@@ -29,6 +29,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-localDbPassword}
       DB_NAME: ${DB_NAME:-journal_db}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
     ports:
       - "8000:8000"
     volumes:
@@ -38,9 +42,8 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 60s
+      interval: 10s
       timeout: 5s
-      retries: 5
       start_period: 10s
     command: poetry run uvicorn api.routes.main:app --host 0.0.0.0 --port 8000 --reload
 
@@ -63,6 +66,7 @@ services:
     environment:
       - VITE_API_URL=http://localhost:8000
       - VITE_API_BACKEND_URL=http://backend:8000
+      - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-}
 
 volumes:
   postgres_data:

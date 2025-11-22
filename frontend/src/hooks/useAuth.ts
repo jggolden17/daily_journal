@@ -40,23 +40,11 @@ export function useAuth() {
     }
   }, []);
 
-  const handleGoogleSignIn = useCallback(() => {
-    // TODO: Implement Google Sign-In
-    // This is a placeholder that simulates the flow
-    // In production, use Google Identity Services:
-    // https://developers.google.com/identity/gsi/web
-    
-    // For now, simulate login with a mock token
-    login('mock-google-id-token');
-  }, [login]);
-
   return {
     user,
     loading,
     login,
     logout,
-    handleGoogleSignIn,
     isAuthenticated: !!user,
   };
 }
-

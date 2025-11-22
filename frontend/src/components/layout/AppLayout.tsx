@@ -7,12 +7,12 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const { user, isAuthenticated, handleGoogleSignIn, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await logout();
-    navigate('/');
+    navigate('/login');
   };
 
   return (
@@ -60,7 +60,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </div>
               ) : (
                 <button
-                  onClick={handleGoogleSignIn}
+                  onClick={() => navigate('/login')}
                   className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md"
                 >
                   Sign in with Google

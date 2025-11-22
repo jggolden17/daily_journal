@@ -264,6 +264,16 @@ class BaseDataManager(Generic[TModel], SessionMixin):
             )
         return result
 
+    async def get_one_or_none_by_id(self, id: uuid.UUID) -> TModel | None:
+        stmt = select(self.model).where(self._get_id_column() == id)
+        return await self.get_one_or_none(stmt)
+
+    async def get_one_or_none_generic(
+        self, column_name: str, value: Any
+    ) -> TModel | None:
+        stmt = select(self.model).where(getattr(self.model, column_name) == value)
+        return await self.get_one_or_none(stmt)
+
     async def get_many_by_ids(self, ids: Sequence[uuid.UUID]) -> list[TModel]:
         if not ids:
             return []
@@ -363,8 +373,7 @@ class BaseDataManager(Generic[TModel], SessionMixin):
         Partially update a single row
         Only fields provided in 'patch' are updated. None means set NULL.
         """
-        stmt = select(self.model).where(self._get_id_column() == pk)
-        obj = await self.get_one_or_none(stmt)
+        obj = await self.get_one_or_none_by_id(pk)
 
         if not obj:
             raise DataValidationError(

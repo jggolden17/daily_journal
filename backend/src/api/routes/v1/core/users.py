@@ -12,6 +12,7 @@ from api.api_schemas.generic import (
 )
 from api.db.base_data_manager import DataValidationError
 from api.db.database import DBSessionDep
+from api.middleware.auth import CurrentUser
 from api.routes.route_prefix import USERS_URL
 from api.routes.route_types import OptionalUUIDList, RequiredUUIDList
 from api.services.core.users import UsersService
@@ -29,13 +30,14 @@ router = APIRouter(prefix="/" + USERS_URL)
 @router.get("", response_model=PaginatedResponse[UserSchema])
 async def get_data(
     session: DBSessionDep,
+    current_user: CurrentUser,
     ids: OptionalUUIDList = None,
     page_params: PageParams = Depends(validate_page_params),
     sort_params: SortParams = Depends(validate_sort_params),
 ) -> PaginatedResponse[list[UserSchema]]:
     """get (with pagination)"""
     try:
-        data, total_records = await UsersService(session).read(
+        data, total_records = await UsersService(session).get_all_paginated(
             ids,
             page_params,
             sort_params,
@@ -52,6 +54,7 @@ async def get_data(
 async def create_data(
     users: list[UserCreateSchema],
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> SingleItemResponse[list[UserSchema]]:
     """create"""
     try:
@@ -68,6 +71,7 @@ async def create_data(
 async def update_data(
     users: list[UserPatchSchema],
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> SingleItemResponse[list[UserSchema]]:
     """update"""
     try:
@@ -84,12 +88,13 @@ async def update_data(
 async def upsert_data(
     users: list[UserUpsertSchema],
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> SingleItemResponse[list[UserSchema]]:
     """upsert"""
     try:
         data = await UsersService(session).upsert(
             schemas=users,
-            unique_constr_cols=("email",),
+            unique_constr_cols=("email", "external_auth_sub"),
             blocked_update_fields=["id", "created_at"],
         )
         return create_response(data)
@@ -109,6 +114,7 @@ async def upsert_data(
 async def delete_data(
     ids: RequiredUUIDList,
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> None:
     """delete"""
     try:

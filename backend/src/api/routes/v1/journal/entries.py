@@ -18,6 +18,7 @@ from api.api_schemas.generic import (
 from api.db.base_data_manager import DataValidationError
 from api.db.database import DBSessionDep
 from api.db.models.journal.threads import ThreadsModel
+from api.middleware.auth import CurrentUser
 from api.routes.route_prefix import ENTRIES_URL
 from api.routes.route_types import OptionalUUIDList, RequiredUUIDList
 from api.services.journal.entries import EntriesService
@@ -36,13 +37,14 @@ router = APIRouter(prefix="/" + ENTRIES_URL)
 @router.get("", response_model=PaginatedResponse[EntrySchema])
 async def get_data(
     session: DBSessionDep,
+    current_user: CurrentUser,
     ids: OptionalUUIDList = None,
     page_params: PageParams = Depends(validate_page_params),
     sort_params: SortParams = Depends(validate_sort_params),
 ) -> PaginatedResponse[list[EntrySchema]]:
     """get (with pagination)"""
     try:
-        data, total_records = await EntriesService(session).read(
+        data, total_records = await EntriesService(session).get_all_paginated(
             ids,
             page_params,
             sort_params,
@@ -59,6 +61,7 @@ async def get_data(
 async def create_data(
     entries: list[EntryCreateSchema],
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> SingleItemResponse[list[EntrySchema]]:
     """create"""
     try:
@@ -75,16 +78,11 @@ async def create_data(
 async def update_data(
     entries: list[EntryPatchSchema],
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> SingleItemResponse[list[EntrySchema]]:
     """update"""
     try:
         data = await EntriesService(session).patch(schemas=entries)
-        # TODO: Remove this later once issue resolved
-        print(f"Patch returned {len(data) if data else 0} entries")
-        if data:
-            print(
-                f"First entry type: {type(data[0])}, id: {getattr(data[0], 'id', 'N/A')}"
-            )
         return create_response(data)
     except DataValidationError as e:
         raise HTTPException(
@@ -107,6 +105,7 @@ async def update_data(
 async def delete_data(
     ids: RequiredUUIDList,
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> None:
     """delete"""
     try:
@@ -124,6 +123,7 @@ async def delete_data(
 async def get_entries_by_date(
     date: dt.date,
     session: DBSessionDep,
+    current_user: CurrentUser,
     user_id: uuid.UUID = Query(..., description="User ID to filter entries"),
 ) -> SingleItemResponse[list[EntryWithDateSchema]]:
     """
@@ -158,6 +158,7 @@ async def get_entries_by_date(
 async def create_entry_with_thread(
     entry_data: EntryCreateWithDateSchema,
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> SingleItemResponse[EntryWithDateSchema]:
     """
     create an entry and upsert a thread for the given date.
@@ -210,6 +211,7 @@ async def create_entry_with_thread(
 async def delete_entry(
     entry_id: uuid.UUID,
     session: DBSessionDep,
+    current_user: CurrentUser,
 ) -> None:
     """
     delete an entry and its thread if it's the last entry in the thread.
@@ -232,6 +234,7 @@ async def delete_entry(
 @router.get("/calendar", response_model=SingleItemResponse[list[CalendarEntrySchema]])
 async def get_calendar(
     session: DBSessionDep,
+    current_user: CurrentUser,
     user_id: uuid.UUID = Query(..., description="User ID to filter entries"),
     start_date: dt.date = Query(..., description="Start date of the range (inclusive)"),
     end_date: dt.date = Query(..., description="End date of the range (inclusive)"),
