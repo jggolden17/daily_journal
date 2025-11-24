@@ -94,7 +94,7 @@ async def upsert_data(
     try:
         data = await UsersService(session).upsert(
             schemas=users,
-            unique_constr_cols=("email", "external_auth_sub"),
+            unique_constr_cols=("external_auth_sub",),
             blocked_update_fields=["id", "created_at"],
         )
         return create_response(data)

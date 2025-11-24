@@ -1,6 +1,6 @@
 # Daily Journal
 
-This is largely a practice project. It's a simple web-app where I can write daily notes in markdown & track things like my sleep, physical activity, hours worked, etc.
+This is largely a practice project. It's a simple web-app where I can write daily notes in markdown & track things like my sleep, physical activity, hours worked, etc. The focus of the project is the backend; the frontend was built with assistance from ai coding tools. 
 
 ## Overview
 
@@ -10,8 +10,7 @@ I used to use a simple google-sheet for tracking various metrics & capturing sho
 - **Navigate past entries** to review / edit
 - **View summaries of metrics** in some date-range, with avgs., projections, etc.
 
-### Planned extensions (major TODOs)
-- fix tests for backend (broken when I added in auth)
+### Planned next steps
 - deploy in GCP: currently only set up for local dev
 - set up metrics page to be more extensive than simple charts
 - simple gen-ai features:

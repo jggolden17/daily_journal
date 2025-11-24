@@ -2,23 +2,30 @@
 
 import httpx
 import pytest
+from tests.conftest import AuthenticatedClient
 
 
 class TestUsersEndpoints:
     """Tests for /api/latest/users endpoints."""
 
-    def test_get_users_empty(self, client: httpx.Client):
-        """Test GET /api/latest/users returns empty list initially."""
+    def test_get_users_empty(
+        self, client: AuthenticatedClient, authenticated_user: dict
+    ):
+        """Test GET /api/latest/users returns authenticated user initially."""
         response = client.get("/api/latest/users")
         assert response.status_code == 200
 
         data = response.json()
         assert "data" in data
         assert "total_records" in data
-        assert len(data["data"]) == 0
-        assert data["total_records"] == 0
+        # require at least the authenticated user created for tests
+        assert len(data["data"]) >= 1
+        assert data["total_records"] >= 1
+        # verify auth user in the list
+        user_ids = [user["id"] for user in data["data"]]
+        assert authenticated_user["id"] in user_ids
 
-    def test_create_users_valid(self, client: httpx.Client, load_test_data):
+    def test_create_users_valid(self, client: AuthenticatedClient, load_test_data):
         """Test POST /api/latest/users with valid data."""
         test_data = load_test_data("core/users/valid.json")
 
@@ -41,7 +48,9 @@ class TestUsersEndpoints:
         user_ids = [user["id"] for user in created_users]
         client.delete("/api/latest/users", params={"ids": user_ids})
 
-    def test_create_users_invalid_email(self, client: httpx.Client, load_test_data):
+    def test_create_users_invalid_email(
+        self, client: AuthenticatedClient, load_test_data
+    ):
         """Test POST /api/latest/users with invalid email."""
         test_data = load_test_data("core/users/invalid_email.json")
 
@@ -49,7 +58,7 @@ class TestUsersEndpoints:
         assert response.status_code == 422  # Validation error
 
     def test_create_users_invalid_missing_fields(
-        self, client: httpx.Client, load_test_data
+        self, client: AuthenticatedClient, load_test_data
     ):
         """Test POST /api/latest/users with missing required fields."""
         test_data = load_test_data("core/users/invalid_missing_fields.json")
@@ -57,7 +66,7 @@ class TestUsersEndpoints:
         response = client.post("/api/latest/users", json=test_data)
         assert response.status_code == 422  # Validation error
 
-    def test_patch_users(self, client: httpx.Client, test_user: dict):
+    def test_patch_users(self, client: AuthenticatedClient, test_user: dict):
         """Test PATCH /api/latest/users."""
         patch_data = [
             {"id": str(test_user["id"]), "external_auth_sub": "updated_auth_sub"}
@@ -72,13 +81,14 @@ class TestUsersEndpoints:
         assert result["data"][0]["external_auth_sub"] == "updated_auth_sub"
         assert result["data"][0]["id"] == str(test_user["id"])
 
-    def test_upsert_users(self, client: httpx.Client):
+    def test_upsert_users(self, client: AuthenticatedClient):
         """Test POST /api/latest/users/upsert."""
         upsert_data = [
             {"email": "upsert_test@example.com", "external_auth_sub": "upsert_auth_sub"}
         ]
 
         response = client.post("/api/latest/users/upsert", json=upsert_data)
+        print(response.text)
         assert response.status_code == 200
 
         result = response.json()
@@ -86,11 +96,11 @@ class TestUsersEndpoints:
         assert len(result["data"]) == 1
         created_user = result["data"][0]
 
-        # Upsert again with same email (should update based on email, not ID)
+        # upsert again with new email but same external_auth_sub (should update based on email, not ID)
         upsert_data_2 = [
             {
-                "email": "upsert_test@example.com",
-                "external_auth_sub": "updated_upsert_auth_sub",
+                "email": "updated_upsert_test@example.com",
+                "external_auth_sub": "upsert_auth_sub",
             }
         ]
 
@@ -98,14 +108,17 @@ class TestUsersEndpoints:
         assert response2.status_code == 200
 
         result2 = response2.json()
-        assert result2["data"][0]["external_auth_sub"] == "updated_upsert_auth_sub"
+        assert (
+            result2["data"][0]["external_auth_sub"] == created_user["external_auth_sub"]
+        )
+        assert result2["data"][0]["email"] == "updated_upsert_test@example.com"
         # Should be the same user (same ID)
         assert result2["data"][0]["id"] == created_user["id"]
 
         # Cleanup
         client.delete("/api/latest/users", params={"ids": [created_user["id"]]})
 
-    def test_delete_users(self, client: httpx.Client, test_user: dict):
+    def test_delete_users(self, client: AuthenticatedClient, test_user: dict):
         """Test DELETE /api/latest/users."""
         user_id = test_user["id"]
 
@@ -118,7 +131,7 @@ class TestUsersEndpoints:
         data = get_response.json()
         assert len(data["data"]) == 0
 
-    def test_get_users_with_pagination(self, client: httpx.Client):
+    def test_get_users_with_pagination(self, client: AuthenticatedClient):
         """Test GET /api/latest/users with pagination."""
         # Create multiple users
         users_data = [
@@ -156,7 +169,7 @@ class TestUsersEndpoints:
             # Cleanup
             client.delete("/api/latest/users", params={"ids": user_ids})
 
-    def test_get_users_with_sorting(self, client: httpx.Client):
+    def test_get_users_with_sorting(self, client: AuthenticatedClient):
         """Test GET /api/latest/users with sorting."""
         # Create users with different emails
         users_data = [

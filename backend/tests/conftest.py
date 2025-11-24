@@ -22,18 +22,30 @@ import json
 import subprocess
 import time
 import atexit
+import uuid
 
 import pytest
 import httpx
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-from api.utils.logger import log
+# JWT config before importing api modules so __init__ reads test vals
+TEST_JWT_SECRET_KEY = os.environ.get(
+    "JWT_SECRET_KEY", "test-secret-key-for-jwt-tokens-do-not-use-in-production"
+)
+os.environ["JWT_SECRET_KEY"] = TEST_JWT_SECRET_KEY
+os.environ["JWT_ALGORITHM"] = os.environ.get("JWT_ALGORITHM", "HS256")
+os.environ["JWT_ACCESS_TOKEN_EXPIRE_MINUTES"] = os.environ.get(
+    "JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"
+)
 
 # add src directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from api.utils.logger import log
 from api import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME  # noqa: E402
+from api.services.core.auth import create_access_token  # noqa: E402
+from api.db.models.core.users import UsersModel  # noqa: E402
 
 
 # dedicated test db configs
@@ -190,6 +202,12 @@ def start_test_api_server(db_name: str, port: int = TEST_API_PORT) -> subprocess
     # ensure we use the test db (not DATABASE_URL from .env)
     env.pop("DATABASE_URL", None)
 
+    # JWT config for test API server matching the config at top of file
+    env["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", TEST_JWT_SECRET_KEY)
+    env["JWT_ALGORITHM"] = os.environ.get("JWT_ALGORITHM", "HS256")
+    env["JWT_ACCESS_TOKEN_EXPIRE_MINUTES"] = os.environ.get(
+        "JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"
+    )
     # start uvicorn server
     log.info(f"Using Python: {python_exe}")
     log.info(f"PYTHONPATH: {env.get('PYTHONPATH', 'not set')}")
@@ -431,15 +449,188 @@ def _cleanup_test_api():
 
 atexit.register(_cleanup_test_api)
 
+# --------------------------------------------------------------------------------------------------------------------------------
+# auth utils
+# --------------------------------------------------------------------------------------------------------------------------------
+
+
+def _create_test_token(user_id: uuid.UUID) -> str:
+    """create JWT access token for a test user"""
+    return create_access_token(user_id)
+
+
+def _create_test_user_in_db(
+    db_name: str,
+    email: str | None = None,
+    external_auth_sub: str | None = None,
+    name: str | None = None,
+    picture: str | None = None,
+) -> dict:
+    """create a test user directly in the database (bypassing API).
+    - for test setup: need user before making authenticated API calls
+
+    Returns:
+        user data dict
+    """
+    import datetime as dt
+
+    if email is None:
+        email = f"test_{int(time.time())}_{uuid.uuid4().hex[:8]}@example.com"
+    if external_auth_sub is None:
+        external_auth_sub = f"test_sub_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+
+    user_id = uuid.uuid4()
+    now = dt.datetime.now(dt.timezone.utc)
+
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=db_name,
+    )
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO core.users (id, email, external_auth_sub, name, picture, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, email, external_auth_sub, name, picture, created_at, updated_at, last_login_at
+            """,
+            (str(user_id), email, external_auth_sub, name, picture, now, now),
+        )
+        row = cursor.fetchone()
+        conn.commit()
+        if row is None:
+            raise ValueError("No user created in database")
+
+        return {
+            "id": str(row[0]),
+            "email": row[1],
+            "external_auth_sub": row[2],
+            "name": row[3],
+            "picture": row[4],
+            "created_at": row[5].isoformat() if row[5] else None,
+            "updated_at": row[6].isoformat() if row[6] else None,
+            "last_login_at": row[7].isoformat() if row[7] else None,
+        }
+    finally:
+        conn.close()
+
+
+def _delete_test_user_from_db(db_name: str, user_id: str) -> None:
+    """delete a test user directly from the database."""
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=db_name,
+    )
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM core.users WHERE id = %s", (user_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+class AuthenticatedClient:
+    """
+    wrapper around httpx.Client, automatically adds auth header to all requests
+    """
+
+    def __init__(self, base_url: str, token: str, timeout: httpx.Timeout):
+        self._token = token
+        self._client = httpx.Client(base_url=base_url, timeout=timeout)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self._client.close()
+
+    def _add_auth_header(self, headers: dict | None) -> dict:
+        """add auth header to request headers"""
+        if headers is None:
+            headers = {}
+        headers = dict(headers)  # Make a copy
+        headers["Authorization"] = f"Bearer {self._token}"
+        return headers
+
+    def get(self, url: str, **kwargs):
+        kwargs.setdefault("headers", {})
+        kwargs["headers"] = self._add_auth_header(kwargs["headers"])
+        return self._client.get(url, **kwargs)
+
+    def post(self, url: str, **kwargs):
+        kwargs.setdefault("headers", {})
+        kwargs["headers"] = self._add_auth_header(kwargs["headers"])
+        return self._client.post(url, **kwargs)
+
+    def patch(self, url: str, **kwargs):
+        kwargs.setdefault("headers", {})
+        kwargs["headers"] = self._add_auth_header(kwargs["headers"])
+        return self._client.patch(url, **kwargs)
+
+    def put(self, url: str, **kwargs):
+        kwargs.setdefault("headers", {})
+        kwargs["headers"] = self._add_auth_header(kwargs["headers"])
+        return self._client.put(url, **kwargs)
+
+    def delete(self, url: str, **kwargs):
+        kwargs.setdefault("headers", {})
+        kwargs["headers"] = self._add_auth_header(kwargs["headers"])
+        return self._client.delete(url, **kwargs)
+
+    def close(self):
+        self._client.close()
+
+
+# --------------------------------------------------------------------------------------------------------------------------------
+# Test fixtures
+# --------------------------------------------------------------------------------------------------------------------------------
+
 
 @pytest.fixture
-def client(test_database: str) -> Generator[httpx.Client, None, None]:
+def authenticated_user(test_database: str) -> Generator[dict, None, None]:
     """
-    function-scoped fixture that provides http client for testing.
+    Create an authenticated test user directly in the database.
+    Returns user data and access token.
+
+    Yields:
+        Dictionary with user data and 'token' key containing JWT token
+    """
+    user_data = _create_test_user_in_db(test_database)
+    user_id = uuid.UUID(user_data["id"])
+    token = _create_test_token(user_id)
+
+    user_with_token = {**user_data, "token": token}
+
+    yield user_with_token
+
+    # Cleanup
+    try:
+        _delete_test_user_from_db(test_database, user_data["id"])
+    except Exception:
+        pass
+
+
+@pytest.fixture
+def client(
+    test_database: str, authenticated_user: dict
+) -> Generator[AuthenticatedClient, None, None]:
+    """
+    function-scoped fixture that provides authenticated http client for testing.
     Uses the dedicated test API server started by the test_database fixture.
+    Automatically includes Authorization header with JWT token from authenticated_user fixture.
     """
     timeout = httpx.Timeout(10.0, connect=5.0)
-    with httpx.Client(base_url=TEST_API_BASE_URL, timeout=timeout) as http_client:
+    token = authenticated_user["token"]
+
+    with AuthenticatedClient(TEST_API_BASE_URL, token, timeout) as http_client:
         try:
             response = http_client.get("/health", timeout=5.0)
             if response.status_code != 200:
@@ -474,16 +665,16 @@ def load_test_data():
 
 
 @pytest.fixture
-def test_user(client: httpx.Client) -> Generator[dict, None, None]:
+def test_user(client: AuthenticatedClient) -> Generator[dict, None, None]:
     """
-    Create a test user, yield it, and delete it after the test.
+    Create a test user via API (requires authenticated client), yield it, and delete it after the test.
 
     Yields:
         User data dictionary
     """
     user_data = {
-        "email": f"test_{int(time.time())}@example.com",
-        "external_auth_sub": f"test_sub_{int(time.time())}",
+        "email": f"test_{int(time.time())}_{uuid.uuid4().hex[:8]}@example.com",
+        "external_auth_sub": f"test_sub_{int(time.time())}_{uuid.uuid4().hex[:8]}",
     }
 
     response = client.post("/api/latest/users", json=[user_data])
