@@ -1,6 +1,6 @@
 import { tokenStorage } from './auth';
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_BACKEND_URL || '/api';
 
 export interface ApiError {
   message: string;
@@ -16,13 +16,9 @@ async function request<T>(
   const token = tokenStorage.get();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` }),
     ...options.headers,
   };
-
-  // Add auth token to headers if available
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
   
   const config: RequestInit = {
     ...options,

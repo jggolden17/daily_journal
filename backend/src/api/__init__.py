@@ -11,7 +11,11 @@ DB_USER = os.environ.get("DB_USER", "localDbUser")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "localDbPassword")
 DB_NAME = os.environ.get("DB_NAME", "journal_db")
 
-CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CORS_ORIGINS", "*").split(",")
+    if origin.strip()
+]
 
 # auth config
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")

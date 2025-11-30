@@ -1,6 +1,6 @@
 import { apiClient } from './client';
 import { threadsApi } from './threads';
-import type { DailyMetrics, MetricsSummary, Metric } from '../types/metrics';
+import type { DailyMetrics, MetricsSummary } from '../types/metrics';
 
 // Backend response types
 interface SingleItemResponse<T> {

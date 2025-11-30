@@ -1,6 +1,8 @@
 import contextlib
 from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
+from api import CORS_ORIGINS
 from api.db.database import sessionmanager
 from api.routes import healthcheck
 from api.routes.route_metadata import tags_metadata
@@ -27,6 +29,14 @@ app = FastAPI(
     swagger_ui_parameters={"defaultModelsExpandDepth": -1},
     openapi_tags=tags_metadata,
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.add_middleware(GZipMiddleware)

@@ -20,6 +20,9 @@ from api import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 DATABASE_URL_DEFAULT = (
     f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
+APPEND_SSL_MODE = os.environ.get("APPEND_SSL_MODE", "false")
+if APPEND_SSL_MODE.lower() == "true":
+    DATABASE_URL_DEFAULT += "?sslmode=require&channel_binding=require"
 DATABASE_URL = os.environ.get("DATABASE_URL", DATABASE_URL_DEFAULT)
 DATABASE_URL_SYNC = DATABASE_URL.replace("+asyncpg", "")
 

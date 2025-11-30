@@ -11,8 +11,13 @@ I used to use a simple google-sheet for tracking various metrics & capturing sho
 - **View summaries of metrics** in some date-range, with avgs., projections, etc.
 
 ### Planned next steps
-- deploy in GCP: currently only set up for local dev
+- basic deployment in GCP: currently only set up for local dev
+    - [x] test deployment in sandbox
+    - [ ] proper deployment in an enviromnet I will actually use
 - set up metrics page to be more extensive than simple charts
+- backups (probs cloudstorgage)
+- consider encrypting the markdown stored in db for more security
+- improve devops (e.g., more secure networking)
 - simple gen-ai features:
     - talking to a LLM with context of previous N-days' entries plus some summary of earlier entries
     - generate summaries of all entries in a date range

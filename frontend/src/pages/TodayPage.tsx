@@ -64,6 +64,10 @@ export function TodayPage() {
     await handleMetricsChange(field, dateTime);
   };
 
+  const handleUpdateEntry = async (id: string, content: string): Promise<void> => {
+    await updateEntry(id, content);
+  };
+
   if (loading) {
     return <div className="text-center p-8">Loading today's entries...</div>;
   }
@@ -231,7 +235,7 @@ export function TodayPage() {
                 <JournalEntryCard
                   key={entry.id}
                   entry={entry}
-                  onUpdate={updateEntry}
+                  onUpdate={handleUpdateEntry}
                   onDelete={deleteEntry}
                   saving={saving}
                 />

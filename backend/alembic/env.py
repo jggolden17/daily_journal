@@ -30,7 +30,17 @@ if config.config_file_name is not None:
 
 # Build database URL from environment variables
 # Alembic uses sync connections, so we use psycopg2 instead of asyncpg
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+DATABASE_URL_DEFAULT = (
+    f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
+APPEND_SSL_MODE = os.environ.get("APPEND_SSL_MODE", "false")
+if APPEND_SSL_MODE.lower() == "true":
+    DATABASE_URL_DEFAULT += "?sslmode=require&channel_binding=require"
+if not os.environ.get("DATABASE_URL"):
+    print(
+        f"Alembic connecting to db using: {DATABASE_URL_DEFAULT.replace(DB_PASSWORD, '********')}"
+    )
+DATABASE_URL = os.environ.get("DATABASE_URL", DATABASE_URL_DEFAULT)
 
 # Override sqlalchemy.url if not set in alembic.ini
 if config.get_main_option("sqlalchemy.url") == "driver://user:pass@localhost/dbname":

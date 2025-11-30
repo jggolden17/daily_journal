@@ -35,7 +35,7 @@ export const authApi = {
     }
     
     try {
-      const response = await apiClient.get<{ data: User }>('/v1/auth/me');
+      const response = await apiClient.get<{ data: User }>('/latest/auth/me');
       return response.data;
     } catch (error) {
       // If 401, token is invalid, remove it
@@ -47,7 +47,7 @@ export const authApi = {
   },
 
   async loginWithGoogle(idToken: string): Promise<User> {
-    const response = await apiClient.post<{ data: AuthResponse }>('/v1/auth/google', {
+    const response = await apiClient.post<{ data: AuthResponse }>('/latest/auth/google', {
       id_token: idToken,
     });
     
@@ -61,7 +61,7 @@ export const authApi = {
     const token = tokenStorage.get();
     if (token) {
       try {
-        await apiClient.post('/v1/auth/logout');
+        await apiClient.post('/latest/auth/logout');
       } catch (error) {
         // Ignore errors on logout
         console.error('Logout error:', error);
