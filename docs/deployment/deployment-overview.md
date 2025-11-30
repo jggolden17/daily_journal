@@ -28,7 +28,9 @@ Everything other than the DB is in Google Cloud Platform (see [ADR](../ADRs/adr-
 export GCP_PROJECT_ID="your-project-id"
 export GCP_REGION="west-europe2"
 ```
-2. Google OAuth thing
+2. Google OAuth:
+    - create credentials (OAuth client ID, internal only, with yourself as a test user) in GCP APIs & Services. Scope required includes `email`, `profile`, `openid`
+    - Add local frontend url to authorised origins & URIs 
 3. Create DB user & grant appropriate perms
 3. Set up core infra
 ```zsh
@@ -58,6 +60,7 @@ chmod +x deployment/deploy-backend.sh
 chmod +x deployment/deploy-frontend.sh
 ./deployment/deploy-frontend.sh
 ```
+3. Ensure the Google OAuth authorised origins/redirect URIs are updated with front end
 
 ## Useful tests
 
@@ -66,4 +69,9 @@ I frequently forget specific `gcloud`/`gsutil` commands, so dumping some common 
 Check logs on a service, e.g.:
 ```zsh
 gcloud run services logs read daily-journal-backend --region $GCP_REGION --limit 50
+```
+
+Healthcheck backend:
+```zsh
+curl $SERVICE_URL/health
 ```

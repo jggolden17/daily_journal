@@ -14,6 +14,7 @@ I used to use a simple google-sheet for tracking various metrics & capturing sho
 - basic deployment in GCP: currently only set up for local dev
     - [x] test deployment in sandbox
     - [ ] proper deployment in an enviromnet I will actually use
+    - [ ] adapt s.t. in dev mode / something similar, the gcloud oauth isn't required
 - set up metrics page to be more extensive than simple charts
 - backups (probs cloudstorgage)
 - consider encrypting the markdown stored in db for more security
@@ -26,9 +27,11 @@ I used to use a simple google-sheet for tracking various metrics & capturing sho
 ## Docs
 
 See [docs](./docs/) for all documentation, an overview of the key pages is below:
-- [Getting Started Guide](docs/getting-started.md) - Set up and run the project locally
-- [Backend Overview](docs/backend/backend-overview.md) - Architecture and structure of the backend
-- [Frontend Overview](docs/frontend/frontend-overview.md) - Architecture and structure of the frontend 
+- [Getting started guide](docs/getting-started.md) - Set up and run the project locally
+- [Backend overview](docs/backend/backend-overview.md) - Architecture and structure of the backend
+- [Frontend overview](docs/frontend/frontend-overview.md) - Architecture and structure of the frontend 
+- [Deployment overview](docs/deployment/deployment-overview.md) - Explanation of how the project is deployed to GCP
+- [Auth overview](docs/Auth/auth-overview.md) - Explanation of how Google OAuth used, and how to set this up. TODO, write overview of how this works
 
 ## Quick Start
 
@@ -45,8 +48,12 @@ This will start:
 
 You will need to run db migrations before the backend will work. For detailed setup instructions, see the [Getting Started Guide](docs/getting-started.md).
 
+TODO: won't work currently without OAuth set-up, need to configure so there's a quick set-up option where the auth is just mocked.
+
 ## Tech Stack
 While the backend was written ~entirely by me, I made heavy use of ai assistance with the frontend, as this is not my focus.
 
 - **Backend**: FastAPI, SQLAlchemy, PostgreSQL, Alembic
 - **Frontend**: TypeScript, React, Vite, Tailwind CSS
+- **Cloud deployment:**: GCP, Neon/Aiven
+- **Auth**: [Google OAuth](https://developers.google.com/identity/protocols/oauth2)
