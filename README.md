@@ -1,6 +1,8 @@
 # Daily Journal
 
-This is largely a practice project. It's a simple web-app where I can write daily notes in markdown & track things like my sleep, physical activity, hours worked, etc. The focus of the project is the backend; the frontend was built with assistance from ai coding tools. 
+This is largely a practice project. It's a simple web-app where I can write daily notes in markdown & track things like my sleep, physical activity, hours worked, etc. The focus of the project is the backend (the frontend was built with assistance from ai coding tools).
+
+Currently, it's only designed to be used by me. At a later stage I'll adapt it slightly so it can be locally ran by anyone, with the deployed app still restricted to me but set up such that anyone could replicate the implementation.
 
 ## Overview
 
@@ -11,18 +13,31 @@ I used to use a simple google-sheet for tracking various metrics & capturing sho
 - **View summaries of metrics** in some date-range, with avgs., projections, etc.
 
 ### Planned next steps
-- basic deployment in GCP: currently only set up for local dev
-    - [x] test deployment in sandbox
-    - [ ] proper deployment in an enviromnet I will actually use
-    - [ ] adapt s.t. in dev mode / something similar, the gcloud oauth isn't required
-- set up metrics page to be more extensive than simple charts
-- backups (probs cloudstorgage)
-- consider encrypting the markdown stored in db for more security
-- improve devops (e.g., more secure networking)
-- simple gen-ai features:
-    - talking to a LLM with context of previous N-days' entries plus some summary of earlier entries
-    - generate summaries of all entries in a date range
-- better search functionality 
+- [ ] "dev-mode" in which (for local/offline dev) gcloud auth is bypassed
+- basic deployment in GCP:
+    - [x] dev deployment
+    - [ ] produciton deployment
+- improved security & devops:
+    - [ ] threat modelling & network security review of GCP infra
+    - [ ] migrate to a managed pg service that will let me restrict access to whitelisted IPs for free
+    - [ ] encrypt all markdown stored in DB
+    - [ ] move from simple deployment scripts --> terraform
+    - [ ] pre-commit hooks for basic checks, linting, etc.
+    - [ ] build python from requirements.txt not poetry when deploying
+    - [ ] Quality gate for PR that runs tests (at least of backend)
+    - [ ] CI (deploy on PR to main) 
+    - [ ] structured logs in GCP with alerting for failures / warnings
+    - [ ] simple rate-limiting on backend
+- improve data-ops:
+    - [ ] automatic backups of data (probs into cheap cloudstorage buckets)
+- simple feature improvement:
+    - [ ] metrics page more extensive than simple charts
+    - [ ] search functionality (poss in conflict with desire to encrypt data in db, tradeoff)
+- gen-ai features:
+    - [ ] summarising / auto-generating tags for an entry / block of entries
+    - [ ] auto-generating follow-up prompts for N-days in future
+    - [ ] (more expensive) talking to a LLM with context of previous n-days' entries plus some summary of earlier entries
+
 
 ## Docs
 
@@ -47,8 +62,6 @@ This will start:
 - Frontend application on port 3000
 
 You will need to run db migrations before the backend will work. For detailed setup instructions, see the [Getting Started Guide](docs/getting-started.md).
-
-TODO: won't work currently without OAuth set-up, need to configure so there's a quick set-up option where the auth is just mocked.
 
 ## Tech Stack
 While the backend was written ~entirely by me, I made heavy use of ai assistance with the frontend, as this is not my focus.
