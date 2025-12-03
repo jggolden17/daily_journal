@@ -4,6 +4,8 @@
 # configs
 set -e
 source "$(dirname $0)/scripts-utils.sh"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BACKEND_DIR=${BACKEND_DIR:-"$SCRIPT_DIR/../../backend"}
 GCP_PROJECT_ID=${GCP_PROJECT_ID:-""}
 verify_and_set_gcp_project "$GCP_PROJECT_ID"
 log_info "Setting up secrets for project: $GCP_PROJECT_ID"
@@ -95,17 +97,31 @@ log_info "Security configs.."
 log_info "========================================="
 log_info ""
 
-log_info "Ensuring SSL for database connections is enforced..."
-if gcloud secrets describe "append-ssl-mode" --project="$GCP_PROJECT_ID" &>/dev/null; then
-    echo -n "true" | gcloud secrets versions add append-ssl-mode --data-file=- --project="$GCP_PROJECT_ID"
-    log_info "Updated append-ssl-mode secret"
-else
-    echo -n "true" | gcloud secrets create append-ssl-mode \
-        --data-file=- \
-        --replication-policy="automatic" \
-        --project="$GCP_PROJECT_ID"
-    log_info "Created append-ssl-mode secret (enabled)"
+log_info "Encryption Key:"
+log_info "  > This is used to encrypt journal entry content at rest (in db)."
+log_info "  > Must be a valid Fernet key (32 bytes, base64-encoded)."
+read "?  > Generate a random encryption key automatically? (y/n): " generate_encryption
+if [[ "$generate_encryption" =~ ^[Yy]$ ]]; then
+    # Generate Fernet key using Poetry (Fernet.generate_key() produces base64-encoded key)
+    ENCRYPTION_KEY=$(cd "$BACKEND_DIR" && poetry run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" 2>/dev/null || echo "")
+    if [ -z "$ENCRYPTION_KEY" ]; then
+        log_warn "Sorry, failed to generate encryption key with Poetry. Falling back to manual entry."
+        create_or_update_secret "encryption-key" "Encryption key for journal entries (Fernet key, base64-encoded)"
+    else
+        echo -n "$ENCRYPTION_KEY" | gcloud secrets create encryption-key \
+            --data-file=- \
+            --replication-policy="automatic" \
+            --project="$GCP_PROJECT_ID" 2>/dev/null || \
+        echo -n "$ENCRYPTION_KEY" | gcloud secrets versions add encryption-key \
+            --data-file=- \
+            --project="$GCP_PROJECT_ID"
+        log_info "Created/updated encryption-key (randomly generated)"
+        echo "Secret value: $ENCRYPTION_KEY (saved in Secret Manager)"
     fi
+else
+    create_or_update_secret "encryption-key" "Encryption key for journal entries (Fernet key, base64-encoded)"
+fi
+
 log_info "Enter allowed IP addresses (comma-separated, e.g., 1.2.3.4,5.6.7.8)"
 log_info "Leave empty to skip IP filtering - recommended, as IP filtering is something intended for future use when I have OpenVPN setup..."
 read "ALLOWED_IPS?Allowed IPs: "

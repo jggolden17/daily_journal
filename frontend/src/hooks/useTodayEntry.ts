@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { journalApi } from '../api/journal';
-import { authApi } from '../api/auth';
+import { useAuth } from './useAuth';
 import type { JournalEntry } from '../types/journal';
 
 export function useTodayEntry() {
@@ -8,29 +8,10 @@ export function useTodayEntry() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const isSavingRef = useRef(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
   const previousUserIdRef = useRef<string | null>(null);
   const hasInitializedRef = useRef(false);
-
-  // Poll auth state to detect login changes
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const user = await authApi.getMe();
-        setCurrentUserId(user?.id || null);
-      } catch {
-        setCurrentUserId(null);
-      }
-    };
-    
-    // Check immediately
-    checkAuth();
-    
-    // Poll every 1 second to detect login changes
-    // In production, you'd use an event system or context
-    const interval = setInterval(checkAuth, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const loadEntries = useCallback(async () => {
     // Don't try to load if not authenticated

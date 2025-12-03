@@ -121,6 +121,7 @@ htmlcov/
 *.tsbuildinfo
 
 # Temporary files
+scratchpad/*
 *.tmp
 *.temp
 .cache/

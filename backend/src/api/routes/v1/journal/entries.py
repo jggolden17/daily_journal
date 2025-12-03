@@ -44,7 +44,9 @@ async def get_data(
 ) -> PaginatedResponse[list[EntrySchema]]:
     """get (with pagination)"""
     try:
-        data, total_records = await EntriesService(session).get_all_paginated(
+        data, total_records = await EntriesService(
+            session
+        ).get_all_paginated_with_decryption(
             ids,
             page_params,
             sort_params,
@@ -65,7 +67,7 @@ async def create_data(
 ) -> SingleItemResponse[list[EntrySchema]]:
     """create"""
     try:
-        data = await EntriesService(session).create(schemas=entries)
+        data = await EntriesService(session).create_with_encryption(schemas=entries)
         return create_response(data)
     except DataValidationError as e:
         raise HTTPException(
@@ -82,7 +84,7 @@ async def update_data(
 ) -> SingleItemResponse[list[EntrySchema]]:
     """update"""
     try:
-        data = await EntriesService(session).patch(schemas=entries)
+        data = await EntriesService(session).patch_with_encryption(schemas=entries)
         return create_response(data)
     except DataValidationError as e:
         raise HTTPException(

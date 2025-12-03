@@ -33,8 +33,8 @@ if config.config_file_name is not None:
 DATABASE_URL_DEFAULT = (
     f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
-APPEND_SSL_MODE = os.environ.get("APPEND_SSL_MODE", "false")
-if APPEND_SSL_MODE.lower() == "true":
+USE_SSL = os.environ.get("USE_SSL", "false")
+if USE_SSL.lower() == "true":
     DATABASE_URL_DEFAULT += "?sslmode=require&channel_binding=require"
 if not os.environ.get("DATABASE_URL"):
     print(

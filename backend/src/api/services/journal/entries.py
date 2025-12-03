@@ -1,6 +1,6 @@
 import datetime as dt
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 from api.db.data_managers.journal.entries import EntriesDataManager
 from api.db.models.journal.entries import EntriesModel
 from api.api_schemas.journal.entries import (
@@ -10,11 +10,15 @@ from api.api_schemas.journal.entries import (
 from api.services.base_service import BaseService
 from api.services.journal.threads import ThreadsService
 from api.api_schemas.journal.threads import ThreadUpsertSchema
+from api.utils.encryption import get_encryption_service
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.utils.logger import log
 
 if TYPE_CHECKING:
     # avoids a circular import only used for type checking threads..
     from api.db.models.journal.threads import ThreadsModel
+    from api.api_schemas.generic import PageParams, SortParams
 
 
 def populate_create_model(
@@ -22,7 +26,26 @@ def populate_create_model(
     current_time: dt.datetime,
 ):
     """Convert EntryCreateSchema to EntriesModel instance."""
+    encryption_service = get_encryption_service()
     schema_dict = schema.model_dump()
+
+    # don't store raw md, encrypt it first
+    if "raw_markdown" in schema_dict and schema_dict["raw_markdown"] is not None:
+        try:
+            encrypted_markdown = encryption_service.encrypt(schema_dict["raw_markdown"])
+            if encrypted_markdown is not None:
+                schema_dict["raw_markdown"] = encrypted_markdown
+            else:
+                raise ValueError(
+                    "Encryption returned None - data would be stored unencrypted"
+                )
+        except Exception as e:
+
+            log.error(f"Failed to encrypt markdown: {e}")
+            raise ValueError(
+                f"Encryption failed - cannot store unencrypted data: {e}"
+            ) from e
+
     schema_dict.update(
         {
             "created_at": current_time,
@@ -52,13 +75,118 @@ class EntriesService(
             patch_schema=EntryPatchSchema,
             to_create_model=populate_create_model,
         )
+        self._encryption_service = get_encryption_service()
+
+    def _decrypt_entry(self, entry: EntriesModel) -> EntriesModel:
+        """Decrypt raw_markdown field in an entry model."""
+        if entry.raw_markdown is not None:
+            decrypted = self._encryption_service.decrypt(entry.raw_markdown)
+            # seen issues w type checker & SQLAlchemy mapped columns, so use setattr here
+            setattr(entry, "raw_markdown", decrypted)
+        return entry
+
+    def _decrypt_entries(self, entries: list[EntriesModel]) -> list[EntriesModel]:
+        """Decrypt raw_markdown field in a list of entry models."""
+        for entry in entries:
+            self._decrypt_entry(entry)
+        return entries
+
+    async def _prevent_sqlalch_tracking_entries_further(
+        self, entries: list[EntriesModel]
+    ) -> None:
+        """without this, when decrypting, sqlalch will overwrite the encrypted data with the decrypted data on commit,
+        which makes the entire encryption process pointless. This works, tells sqlalch to ignore enries.
+        Call before decrypyting
+        """
+        # Ensure encrypted data is flushed to database before expunging
+        await self.session.flush()
+        for entry in entries:
+            try:
+                self.session.expunge(entry)
+            except Exception as e:
+                log.warning(f"Failed to expunge entry {entry.id}: {e}")
+
+    async def create_with_encryption(
+        self,
+        schemas: list[EntryCreateSchema],
+    ) -> list[EntriesModel]:
+        """Create entries with encrypted raw_markdown and return decrypted."""
+        entries = await super().create(schemas=schemas)
+        await self._prevent_sqlalch_tracking_entries_further(entries)
+        return self._decrypt_entries(entries)
+
+    async def patch_with_encryption(
+        self,
+        schemas: list[EntryPatchSchema],
+    ) -> list[EntriesModel]:
+        """Patch entries with encrypted raw_markdown and return decrypted."""
+        # encrypt md before patching
+        encrypted_schemas = []
+        for schema in schemas:
+            schema_dict = schema.model_dump(exclude_unset=True)
+            if (
+                "raw_markdown" in schema_dict
+                and schema_dict["raw_markdown"] is not None
+            ):
+                try:
+                    encrypted_markdown = self._encryption_service.encrypt(
+                        schema_dict["raw_markdown"]
+                    )
+                    if encrypted_markdown is not None:
+                        schema_dict["raw_markdown"] = encrypted_markdown
+                        encrypted_schema = EntryPatchSchema(**schema_dict)
+                        encrypted_schemas.append(encrypted_schema)
+                    else:
+                        raise ValueError("Encryption returned None during patch")
+                except Exception as e:
+                    from api.utils.logger import log
+
+                    log.error(f"Failed to encrypt markdown during patch: {e}")
+                    raise ValueError(f"Encryption failed during patch: {e}") from e
+            else:
+                encrypted_schemas.append(schema)
+
+        entries = await super().patch(schemas=encrypted_schemas)
+        await self._prevent_sqlalch_tracking_entries_further(entries)
+        return self._decrypt_entries(entries)
+
+    async def get_one_or_none_by_id_with_decryption(
+        self,
+        id: uuid.UUID,
+    ) -> EntriesModel | None:
+        """Get entry by ID and decrypt raw_markdown."""
+        entry = await super().get_one_or_none_by_id(id)
+        if entry:
+            return self._decrypt_entry(entry)
+        return None
+
+    async def get_all_paginated_with_decryption(
+        self,
+        ids: Sequence[uuid.UUID] | None,
+        page_params: "PageParams",
+        sort_params: "SortParams",
+    ) -> tuple[list[EntriesModel], int]:
+        """Get paginated entries and decrypt raw_markdown."""
+        entries, total = await super().get_all_paginated(
+            ids=ids,
+            page_params=page_params,
+            sort_params=sort_params,
+        )
+        return (self._decrypt_entries(entries), total)
 
     async def get_entries_by_date(
         self, user_id: uuid.UUID, date: dt.date
     ) -> list[tuple[EntriesModel, "ThreadsModel"]]:
         """get all entries for a specific date with their threads."""
         data_manager_inst = self.data_manager(self.session, self.model)
-        return await data_manager_inst.get_entries_by_date(user_id, date)
+        entries_with_threads = await data_manager_inst.get_entries_by_date(
+            user_id, date
+        )
+        # Decrypt raw_markdown for all entries
+        return [
+            (self._decrypt_entry(entry), thread)
+            for entry, thread in entries_with_threads
+        ]
 
     async def get_days_with_entries(
         self, user_id: uuid.UUID, start_date: dt.date, end_date: dt.date
@@ -92,7 +220,7 @@ class EntriesService(
         thread = threads[0]
 
         entry_schema = EntryCreateSchema(thread_id=thread.id, raw_markdown=raw_markdown)
-        entries = await self.create(schemas=[entry_schema])
+        entries = await self.create_with_encryption(schemas=[entry_schema])
 
         if not entries:
             raise ValueError("Failed to create entry")

@@ -23,8 +23,8 @@ services:
       dockerfile: containerisation/Dockerfile
     container_name: daily-journal-backend
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
       DB_USER: ${DB_USER:-localDbUser}
       DB_PASSWORD: ${DB_PASSWORD:-localDbPassword}
       DB_NAME: ${DB_NAME:-journal_db}
@@ -33,13 +33,12 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      USE_SSL: ${USE_SSL:-false}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
     ports:
       - "8000:8000"
     volumes:
       - ../backend/src:/app/src
-    depends_on:
-      postgres:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s

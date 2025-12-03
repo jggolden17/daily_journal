@@ -18,21 +18,22 @@ I used to use a simple google-sheet for tracking various metrics & capturing sho
     - [x] dev deployment
     - [ ] produciton deployment
 - improved security & devops:
-    - [ ] threat modelling & network security review of GCP infra
-    - [ ] migrate to a managed pg service that will let me restrict access to whitelisted IPs for free
-    - [ ] encrypt all markdown stored in DB
+    - [x] threat modelling & network security review of GCP infra
+    - [x] encrypt all markdown stored in DB
     - [ ] move from simple deployment scripts --> terraform
     - [ ] pre-commit hooks for basic checks, linting, etc.
     - [ ] build python from requirements.txt not poetry when deploying
     - [ ] Quality gate for PR that runs tests (at least of backend)
     - [ ] CI (deploy on PR to main) 
-    - [ ] structured logs in GCP with alerting for failures / warnings
+    - [ ] structured logs in GCP with alerting for failures / warnings. Also, currently think backend logs with traceback are shared with client, which is fine for me but bad practice in prod
     - [ ] simple rate-limiting on backend
 - improve data-ops:
     - [ ] automatic backups of data (probs into cheap cloudstorage buckets)
 - simple feature improvement:
+    - [ ] markdown editor / preview merged into one
     - [ ] metrics page more extensive than simple charts
-    - [ ] search functionality (poss in conflict with desire to encrypt data in db, tradeoff)
+    - [ ] generate pdf of entries over some date range
+    - [ ] search functionality (poss in conflict with desire to encrypt data in db, tradeoff. Probably I'll do something like have encryption on DB but ability to search a secure backup stored elsewhere if I ever need this)
 - gen-ai features:
     - [ ] summarising / auto-generating tags for an entry / block of entries
     - [ ] auto-generating follow-up prompts for N-days in future

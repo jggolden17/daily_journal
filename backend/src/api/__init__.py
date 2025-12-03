@@ -24,3 +24,6 @@ JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(
     os.environ.get("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 )
+
+# encryption config
+ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")

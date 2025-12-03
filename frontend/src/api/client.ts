@@ -1,6 +1,13 @@
 import { tokenStorage } from './auth';
 
-const API_BASE_URL = import.meta.env.VITE_API_BACKEND_URL || '/api';
+let API_BASE_URL = '/api';
+const envUrl = import.meta.env.VITE_API_BACKEND_URL;
+if (envUrl && (envUrl.startsWith('http://localhost') || envUrl.startsWith('https://'))) {
+  API_BASE_URL = envUrl;
+} else if (envUrl && envUrl.includes('backend:')) {
+  console.warn('Detected Docker hostname in browser context. Using Vite proxy instead.');
+  API_BASE_URL = '/api';
+}
 
 export interface ApiError {
   message: string;
