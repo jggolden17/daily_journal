@@ -11,9 +11,8 @@ User → Google Login → Frontend (ID Token) → Backend (Verify & Exchange) �
 ```
 
 Might in future extend with:
-- better networking in GCP
-- restricting DB access to whitelisted IPs
-- encrypting the markdown stored in DB
+- [ ] encrypting the markdown stored in DB
+- [ ] setting up self-hosted OpenVPN and then restricting access to come within the VPN with 2-factor auth
 
 ## Authentication Flow
 

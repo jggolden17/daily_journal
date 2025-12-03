@@ -58,7 +58,7 @@ log_info "Image pushed successfully"
 log_info ""
 
 log_info "Verifying secrets exist in Secret Manager..."
-REQUIRED_SECRETS=("db-host" "db-port" "db-user" "db-password" "db-name" "jwt-secret-key")
+REQUIRED_SECRETS=("db-host" "db-port" "db-user" "db-password" "db-name" "jwt-secret-key" "google-client-id" "append-ssl-mode")
 for secret in "${REQUIRED_SECRETS[@]}"; do
     if ! gcloud secrets describe "$secret" --project="$GCP_PROJECT_ID" &>/dev/null; then
         log_error "Required secret '$secret' not found in Secret Manager"
@@ -68,10 +68,19 @@ done
 log_info "All required secrets verified"
 log_info ""
 
-log_info "Deploying to Cloud Run..."
-SECRETS_ARGS="DB_PASSWORD=db-password:latest,DB_HOST=db-host:latest,DB_PORT=db-port:latest,DB_USER=db-user:latest,DB_NAME=db-name:latest,JWT_SECRET_KEY=jwt-secret-key:latest,GOOGLE_CLIENT_ID=google-client-id:latest"
-ENV_VARS_ARGS="JWT_ALGORITHM=HS256,JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30"
+log_info "Getting frontend URL for CORS configuration..."
+STORAGE_BUCKET_PREFIX=${STORAGE_BUCKET_PREFIX:-"daily-journal-frontend"}
+STORAGE_BUCKET="${STORAGE_BUCKET_PREFIX}-${GCP_PROJECT_ID}"
+FRONTEND_URL="https://storage.googleapis.com/${STORAGE_BUCKET}"
+FRONTEND_URL_ALT="https://${STORAGE_BUCKET}.web.app"
+CORS_ORIGINS="${FRONTEND_URL},${FRONTEND_URL_ALT}"
 
+log_info "Deploying to Cloud Run..."
+SECRETS_ARGS="DB_PASSWORD=db-password:latest,DB_HOST=db-host:latest,DB_PORT=db-port:latest,DB_USER=db-user:latest,DB_NAME=db-name:latest,JWT_SECRET_KEY=jwt-secret-key:latest,GOOGLE_CLIENT_ID=google-client-id:latest,APPEND_SSL_MODE=append-ssl-mode:latest"
+if gcloud secrets describe "allowed-ips" --project="$GCP_PROJECT_ID" &>/dev/null; then
+    SECRETS_ARGS="${SECRETS_ARGS},ALLOWED_IPS=allowed-ips:latest"
+fi
+ENV_VARS_ARGS="JWT_ALGORITHM=HS256,JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30,CORS_ORIGINS=${CORS_ORIGINS}"
 if gcloud run services describe "$SERVICE_NAME" --region="$GCP_REGION" --project="$GCP_PROJECT_ID" &>/dev/null; then
     log_info "Updating existing Cloud Run service..."
     gcloud run services update "$SERVICE_NAME" \
@@ -91,7 +100,7 @@ if gcloud run services describe "$SERVICE_NAME" --region="$GCP_REGION" --project
         exit 1
     fi
     
-    log_info "Allowing unauthenticated access..."
+    log_info "Allowing unauthenticated access (as browser-based frontend needs unauthenticated access)..."
     gcloud run services add-iam-policy-binding "$SERVICE_NAME" \
         --region="$GCP_REGION" \
         --member="allUsers" \
@@ -120,7 +129,6 @@ else
     fi
 fi
 
-# Get service URL
 SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" \
     --region="$GCP_REGION" \
     --format='value(status.url)' \

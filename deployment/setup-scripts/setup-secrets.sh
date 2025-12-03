@@ -62,16 +62,15 @@ create_or_update_secret "db-user" "db username"
 create_or_update_secret "db-password" "db password"
 create_or_update_secret "db-name" "db name"
 
-echo ""
-echo "========================================="
-echo "API configs.."
-echo "========================================="
-echo ""
+log_info ""
+log_info "========================================="
+log_info "API configs.."
+log_info "========================================="
+log_info ""
 
-# JWT Secret
-echo "JWT Secret Key:"
-echo "  > This should be a secure random string (at least 32 characters)."
-read "?  > Generate a random JWT secret automatically? (y/n): " generate_jwt
+log_info "JWT Secret Key:"
+log_info "  > This should be a secure random string (at least 32 characters)."
+log_info "?  > Generate a random JWT secret automatically? (y/n): " generate_jwt
 if [[ "$generate_jwt" =~ ^[Yy]$ ]]; then
     JWT_SECRET=$(openssl rand -hex 32 | tr -d '\n')
     echo -n "$JWT_SECRET" | gcloud secrets create jwt-secret-key \
@@ -89,6 +88,41 @@ fi
 # google oauth configs
 create_or_update_secret "google-client-id" "Google OAuth Client ID"
 create_or_update_secret "google-client-secret" "Google OAuth Client Secret"
+
+log_info ""
+log_info "========================================="
+log_info "Security configs.."
+log_info "========================================="
+log_info ""
+
+log_info "Ensuring SSL for database connections is enforced..."
+if gcloud secrets describe "append-ssl-mode" --project="$GCP_PROJECT_ID" &>/dev/null; then
+    echo -n "true" | gcloud secrets versions add append-ssl-mode --data-file=- --project="$GCP_PROJECT_ID"
+    log_info "Updated append-ssl-mode secret"
+else
+    echo -n "true" | gcloud secrets create append-ssl-mode \
+        --data-file=- \
+        --replication-policy="automatic" \
+        --project="$GCP_PROJECT_ID"
+    log_info "Created append-ssl-mode secret (enabled)"
+    fi
+log_info "Enter allowed IP addresses (comma-separated, e.g., 1.2.3.4,5.6.7.8)"
+log_info "Leave empty to skip IP filtering - recommended, as IP filtering is something intended for future use when I have OpenVPN setup..."
+read "ALLOWED_IPS?Allowed IPs: "
+if [ -n "$ALLOWED_IPS" ]; then
+    if gcloud secrets describe "allowed-ips" --project="$GCP_PROJECT_ID" &>/dev/null; then
+        echo -n "$ALLOWED_IPS" | gcloud secrets versions add allowed-ips --data-file=- --project="$GCP_PROJECT_ID"
+        log_info "Updated allowed-ips secret"
+    else
+        echo -n "$ALLOWED_IPS" | gcloud secrets create allowed-ips \
+            --data-file=- \
+            --replication-policy="automatic" \
+            --project="$GCP_PROJECT_ID"
+        log_info "Created allowed-ips secret"
+    fi
+else
+    log_info "Skipping IP filtering (no IPs provided)"
+fi
 
 log_info ""
 log_info "============================================"

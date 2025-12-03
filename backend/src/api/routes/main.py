@@ -10,6 +10,8 @@ from api.routes.route_prefix import JOURNAL_API_TITLE, OPEN_API_DESCRIPTION
 from api.routes.v1.core import users, auth
 from api.routes.v1.journal import entries, metrics, threads
 from api.utils.logger import log
+from api.middleware.ip_filter import IPFilterMiddleware
+from api.middleware.security_headers import SecurityHeadersMiddleware
 
 
 @contextlib.asynccontextmanager
@@ -31,6 +33,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ensure sec before other middleware
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(IPFilterMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,

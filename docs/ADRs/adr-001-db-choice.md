@@ -1,9 +1,13 @@
 # ADR-001: Managed DB service
 
->**What:** the service I'll be using to host/manage my postgres DB
->**Status:** Decided  
+>**What:** the service I'll be using to host/manage my postgres DB   
+>**Status:** Superceded  
 >**Date:** 2025-11-30  
->**Outcome:** using Neon for intial dev with plans to migrate to Aiven before I actually use this, once networking in GCP set up
+> **Original superceded outcome**: ~~using Neon for intial dev with plans to migrate to Aiven before I actually use this, once networking in GCP set up~~    
+
+>**Date:** 2025-12-03  
+>**Outcome:** Using Neon, and encrypting the markdown content in journal entries   
+>**Reason this supercedes original:** Originally planned to migrate to Aiven because it offers restricting access to whitelisted IPs. But following [adr-002](./adr-002-network-security.md), I realise it will be too expensive to ensure traffic to the DB comes from the same IP, meaning Aiven has no real benefit over Neon.
 
 ## Requirements
 
@@ -55,8 +59,8 @@ Cons:
 
 ## Conclusion
 
-For a "proper" project I would prefer Neon, but given the importance of security in this project I think it's essential that I can restrict access to the DB to whitelisted IPs. 
+#### **NOTE: decision superceded, see top of document**
 
+~~For a "proper" project I would prefer Neon, but given the importance of security in this project I think it's essential that I can restrict access to the DB to whitelisted IPs. 
 I haven't yet set any of the networking up in GCP, the only data I have is for testing (not sensitve), and I'm interested in Neon anyway. So I'll initially use it for dev purposes. 
-
-But I'll plan to migrate to use Aiven as the only option I can find with a free tier that lets me restrict access to whitelisted IPs.
+But I'll plan to migrate to use Aiven as the only option I can find with a free tier that lets me restrict access to whitelisted IPs.~~
