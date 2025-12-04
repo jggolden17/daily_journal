@@ -30,7 +30,9 @@ I used to use a simple google-sheet for tracking various metrics & capturing sho
 - improve data-ops:
     - [ ] automatic backups of data (probs into cheap cloudstorage buckets)
 - simple feature improvement:
-    - [ ] markdown editor / preview merged into one
+    - [x] markdown editor / preview merged into one
+    - [ ] more deliberate front-end design
+    - [ ] autosave
     - [ ] metrics page more extensive than simple charts
     - [ ] generate pdf of entries over some date range
     - [ ] search functionality (poss in conflict with desire to encrypt data in db, tradeoff. Probably I'll do something like have encryption on DB but ability to search a secure backup stored elsewhere if I ever need this)

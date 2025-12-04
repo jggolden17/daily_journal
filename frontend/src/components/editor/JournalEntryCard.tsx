@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MarkdownEditor } from './MarkdownEditor';
+import { TipTapEditor } from './TipTapEditor';
 import { MarkdownPreview } from './MarkdownPreview';
 import type { JournalEntry } from '../../types/journal';
 
@@ -14,7 +14,6 @@ export function JournalEntryCard({ entry, onUpdate, onDelete, saving = false }: 
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(entry.content);
-  const [showPreview, setShowPreview] = useState(false);
 
   // Sync content when entry changes (but not when editing)
   useEffect(() => {
@@ -141,12 +140,6 @@ export function JournalEntryCard({ entry, onUpdate, onDelete, saving = false }: 
                 <div className="flex items-center space-x-2">
                   {saving && <span className="text-sm text-gray-500">Saving...</span>}
                   <button
-                    onClick={() => setShowPreview(!showPreview)}
-                    className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-                  >
-                    {showPreview ? 'Edit' : 'Preview'}
-                  </button>
-                  <button
                     onClick={handleSave}
                     className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
                   >
@@ -156,7 +149,6 @@ export function JournalEntryCard({ entry, onUpdate, onDelete, saving = false }: 
                     onClick={() => {
                       setIsEditing(false);
                       setContent(entry.content);
-                      setShowPreview(false);
                     }}
                     className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
                   >
@@ -164,18 +156,13 @@ export function JournalEntryCard({ entry, onUpdate, onDelete, saving = false }: 
                   </button>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2" style={{ minHeight: '400px' }}>
-                <div className={showPreview ? 'hidden' : 'block'}>
-                  <MarkdownEditor
-                    value={content}
-                    onChange={setContent}
-                    onSave={handleSave}
-                    placeholder="Write about your day..."
-                  />
-                </div>
-                <div className={`border-l border-gray-200 ${showPreview ? 'block' : 'hidden md:block'}`}>
-                  <MarkdownPreview content={content} />
-                </div>
+              <div style={{ minHeight: '400px' }}>
+                <TipTapEditor
+                  value={content}
+                  onChange={setContent}
+                  onSave={handleSave}
+                  placeholder="Write about your day..."
+                />
               </div>
             </div>
           ) : (
