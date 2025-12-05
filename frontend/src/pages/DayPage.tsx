@@ -63,6 +63,34 @@ export function DayPage() {
     }
   };
 
+  const handleSaveEntry = async (content: string) => {
+    // Update state and save directly with the content
+    setNewEntryContent(content);
+    if (!date || !content.trim() || saving) {
+      if (!content.trim()) {
+        setIsCreatingNew(false);
+      }
+      return;
+    }
+    setSaving(true);
+    try {
+      const saved = await journalApi.createEntry(date, content);
+      setEntries((prev) => {
+        // Check if entry already exists to prevent duplicates
+        if (prev.some((e) => e.id === saved.id)) {
+          return prev;
+        }
+        return [...prev, saved];
+      });
+      setNewEntryContent('');
+      setIsCreatingNew(false);
+    } catch (error) {
+      console.error('Failed to create entry:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleUpdateEntry = async (id: string, content: string) => {
     setSaving(true);
     try {
@@ -331,6 +359,7 @@ export function DayPage() {
               <TipTapEditor
                 value={newEntryContent}
                 onChange={setNewEntryContent}
+                onSave={handleSaveEntry}
                 placeholder="Write about your day..."
               />
             </div>

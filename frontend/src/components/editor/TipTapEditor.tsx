@@ -43,6 +43,8 @@ export function TipTapEditor({
 }: TipTapEditorProps) {
   const saveTimeoutRef = useRef<number | null>(null);
   const previousValueRef = useRef<string>(value);
+  const editorRef = useRef<ReturnType<typeof useEditor> | null>(null);
+  const onSaveRef = useRef(onSave);
 
   // Convert markdown to HTML for TipTap
   const markdownToHtml = (markdown: string): string => {
@@ -95,6 +97,30 @@ export function TipTapEditor({
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none p-4 min-h-[400px]',
       },
+      handleKeyDown: (view, event) => {
+        // Handle Command+Enter (Mac) or Ctrl+Enter (Windows/Linux) to save
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+          event.preventDefault();
+          
+          if (onSaveRef.current) {
+            // Get HTML from the ProseMirror content element
+            const proseMirrorElement = view.dom.querySelector('.ProseMirror') || view.dom;
+            const html = proseMirrorElement.innerHTML;
+            const markdown = htmlToMarkdown(html);
+            
+            // Clear any pending debounced save
+            if (saveTimeoutRef.current) {
+              clearTimeout(saveTimeoutRef.current);
+              saveTimeoutRef.current = null;
+            }
+            
+            // Immediately save
+            onSaveRef.current(markdown);
+          }
+          return true;
+        }
+        return false;
+      },
     },
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
@@ -117,6 +143,12 @@ export function TipTapEditor({
       }
     },
   });
+
+  // Store editor reference and update onSave ref
+  useEffect(() => {
+    editorRef.current = editor;
+    onSaveRef.current = onSave;
+  }, [editor, onSave]);
 
   // Update editor content when value prop changes externally
   useEffect(() => {

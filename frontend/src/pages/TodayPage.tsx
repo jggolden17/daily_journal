@@ -30,6 +30,24 @@ export function TodayPage() {
     }
   };
 
+  const handleSaveEntry = async (content: string) => {
+    // Update state and save directly with the content
+    setNewEntryContent(content);
+    if (!content.trim() || saving) {
+      if (!content.trim()) {
+        setIsCreatingNew(false);
+      }
+      return;
+    }
+    try {
+      await createEntry(content);
+      setNewEntryContent('');
+      setIsCreatingNew(false);
+    } catch (error) {
+      console.error('Failed to create entry:', error);
+    }
+  };
+
   const handleCancelNew = () => {
     setIsCreatingNew(false);
     setNewEntryContent('');
@@ -266,6 +284,7 @@ export function TodayPage() {
               <TipTapEditor
                 value={newEntryContent}
                 onChange={setNewEntryContent}
+                onSave={handleSaveEntry}
                 placeholder="Write about your day..."
               />
             </div>
