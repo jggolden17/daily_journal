@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { JournalEntryCard } from '../components/editor/JournalEntryCard';
-import { MarkdownEditor } from '../components/editor/MarkdownEditor';
-import { MarkdownPreview } from '../components/editor/MarkdownPreview';
+import { TipTapEditor } from '../components/editor/TipTapEditor';
 import { useTodayEntry } from '../hooks/useTodayEntry';
 import { useMetrics } from '../hooks/useMetrics';
 import { ColoredScaleSelect } from '../components/metrics/ColoredScaleSelect';
@@ -13,7 +12,6 @@ export function TodayPage() {
   const { metrics, loading: metricsLoading, saveMetrics } = useMetrics(today);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [newEntryContent, setNewEntryContent] = useState('');
-  const [showPreview, setShowPreview] = useState(false);
   const [metricsExpanded, setMetricsExpanded] = useState(false);
 
   const handleCreateEntry = async () => {
@@ -27,7 +25,24 @@ export function TodayPage() {
       await createEntry(newEntryContent);
       setNewEntryContent('');
       setIsCreatingNew(false);
-      setShowPreview(false);
+    } catch (error) {
+      console.error('Failed to create entry:', error);
+    }
+  };
+
+  const handleSaveEntry = async (content: string) => {
+    // Update state and save directly with the content
+    setNewEntryContent(content);
+    if (!content.trim() || saving) {
+      if (!content.trim()) {
+        setIsCreatingNew(false);
+      }
+      return;
+    }
+    try {
+      await createEntry(content);
+      setNewEntryContent('');
+      setIsCreatingNew(false);
     } catch (error) {
       console.error('Failed to create entry:', error);
     }
@@ -36,7 +51,6 @@ export function TodayPage() {
   const handleCancelNew = () => {
     setIsCreatingNew(false);
     setNewEntryContent('');
-    setShowPreview(false);
   };
 
   const handleMetricsChange = async (
@@ -251,12 +265,6 @@ export function TodayPage() {
               <div className="flex items-center space-x-2">
                 {saving && <span className="text-sm text-gray-500">Saving...</span>}
                 <button
-                  onClick={() => setShowPreview(!showPreview)}
-                  className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  {showPreview ? 'Edit' : 'Preview'}
-                </button>
-                <button
                   onClick={handleCreateEntry}
                   disabled={saving || !newEntryContent.trim()}
                   className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -272,17 +280,13 @@ export function TodayPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2" style={{ minHeight: '400px' }}>
-              <div className={showPreview ? 'hidden' : 'block'}>
-                <MarkdownEditor
-                  value={newEntryContent}
-                  onChange={setNewEntryContent}
-                  placeholder="Write about your day..."
-                />
-              </div>
-              <div className={`border-l border-gray-200 ${showPreview ? 'block' : 'hidden md:block'}`}>
-                <MarkdownPreview content={newEntryContent} />
-              </div>
+            <div style={{ minHeight: '400px' }}>
+              <TipTapEditor
+                value={newEntryContent}
+                onChange={setNewEntryContent}
+                onSave={handleSaveEntry}
+                placeholder="Write about your day..."
+              />
             </div>
           </div>
         )}

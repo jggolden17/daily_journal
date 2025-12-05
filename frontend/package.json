@@ -10,18 +10,26 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.12.1",
+    "@tiptap/extension-link": "^3.12.1",
+    "@tiptap/extension-placeholder": "^3.12.1",
+    "@tiptap/react": "^3.12.1",
+    "@tiptap/starter-kit": "^3.12.1",
+    "marked": "^17.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^9.0.1",
     "react-router-dom": "^6.20.0",
     "recharts": "^2.10.3",
-    "@react-oauth/google": "^0.12.1"
+    "turndown": "^7.2.2"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.10",
+    "@types/marked": "^5.0.2",
     "@types/node": "^24.10.1",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
+    "@types/turndown": "^5.0.6",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
     "@vitejs/plugin-react": "^4.2.1",
