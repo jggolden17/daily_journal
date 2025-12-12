@@ -12,11 +12,21 @@ from api import (
     JWT_SECRET_KEY,
     JWT_ALGORITHM,
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
+    is_local_environment,
+    MOCK_GOOGLE_ID_TOKEN,
 )
 from api.api_schemas.core.auth import TokenData
 
 
 def verify_google_token(id_token_str: str) -> dict:
+    # in local dev, don't go via google
+    if is_local_environment() and id_token_str == MOCK_GOOGLE_ID_TOKEN:
+        return {
+            "sub": "mock-dev-user-123",
+            "email": "dev@localhost.com",
+            "name": "Dev User",
+            "picture": None,
+        }
 
     if not GOOGLE_CLIENT_ID:
         raise ValueError("GOOGLE_CLIENT_ID not configured")

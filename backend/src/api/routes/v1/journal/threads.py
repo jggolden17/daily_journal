@@ -21,6 +21,7 @@ from api.utils.utils import (
     create_response,
     validate_page_params,
     validate_sort_params,
+    validate_user_ids_authorization,
 )
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -57,6 +58,7 @@ async def create_data(
     current_user: CurrentUser,
 ) -> SingleItemResponse[list[ThreadSchema]]:
     """create"""
+    validate_user_ids_authorization([t.user_id for t in threads], current_user)
     try:
         data = await ThreadsService(session).create(schemas=threads)
         return create_response(data)
@@ -74,6 +76,10 @@ async def update_data(
     current_user: CurrentUser,
 ) -> SingleItemResponse[list[ThreadSchema]]:
     """update"""
+    # Validate user_id if provided (it's optional in PatchSchema)
+    user_ids = [t.user_id for t in threads if t.user_id is not None]
+    if user_ids:
+        validate_user_ids_authorization(user_ids, current_user)
     try:
         data = await ThreadsService(session).patch(schemas=threads)
         return create_response(data)
@@ -96,6 +102,7 @@ async def upsert_data(
     current_user: CurrentUser,
 ) -> SingleItemResponse[list[ThreadSchema]]:
     """upsert"""
+    validate_user_ids_authorization([t.user_id for t in threads], current_user)
     try:
         data = await ThreadsService(session).upsert(
             schemas=threads,

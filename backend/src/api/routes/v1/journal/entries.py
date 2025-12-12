@@ -27,6 +27,7 @@ from api.utils.utils import (
     create_response,
     validate_page_params,
     validate_sort_params,
+    validate_user_id_authorization,
 )
 from api.utils.logger import log
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -131,6 +132,7 @@ async def get_entries_by_date(
     """
     get all entries for a specific date (joining entries to threads).
     """
+    validate_user_id_authorization(user_id, current_user)
     try:
         service = EntriesService(session)
         entries_with_threads = await service.get_entries_by_date(user_id, date)
@@ -165,6 +167,7 @@ async def create_entry_with_thread(
     """
     create an entry and upsert a thread for the given date.
     """
+    validate_user_id_authorization(entry_data.user_id, current_user)
     try:
         service = EntriesService(session)
         entry = await service.create_entry_with_thread(
@@ -244,6 +247,7 @@ async def get_calendar(
     """
     get calendar data for a date range, indicating which dates have entries
     """
+    validate_user_id_authorization(user_id, current_user)
     try:
         if start_date > end_date:
             raise HTTPException(
