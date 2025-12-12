@@ -4,6 +4,7 @@ import { TodayPage } from './pages/TodayPage';
 import { DayPage } from './pages/DayPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { MetricsPage } from './pages/MetricsPage';
+import { AddMetricsPage } from './pages/AddMetricsPage';
 import { LoginPage } from './pages/LoginPage';
 import { useAuth } from './hooks/useAuth';
 
@@ -83,6 +84,16 @@ function App() {
             <ProtectedRoute>
               <AppLayout>
                 <MetricsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/add-metrics"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <AddMetricsPage />
               </AppLayout>
             </ProtectedRoute>
           }

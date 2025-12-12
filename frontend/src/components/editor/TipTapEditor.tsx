@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -6,12 +6,19 @@ import Placeholder from '@tiptap/extension-placeholder';
 import TurndownService from 'turndown';
 import { marked } from 'marked';
 
+export interface TipTapEditorHandle {
+  focus: () => void;
+}
+
 interface TipTapEditorProps {
   value: string;
   onChange: (value: string) => void;
   onSave?: (value: string) => void;
+  onCursorChange?: (position: number) => void;
   placeholder?: string;
   autoSaveDelay?: number;
+  fullScreen?: boolean;
+  noBorder?: boolean;
 }
 
 // Initialize Turndown service for HTML to Markdown conversion
@@ -34,17 +41,21 @@ turndownService.addRule('codeBlock', {
   },
 });
 
-export function TipTapEditor({
+export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(({
   value,
   onChange,
   onSave,
+  onCursorChange,
   placeholder = 'Start writing...',
   autoSaveDelay = 2000,
-}: TipTapEditorProps) {
+  fullScreen = false,
+  noBorder = false,
+}, ref) => {
   const saveTimeoutRef = useRef<number | null>(null);
   const previousValueRef = useRef<string>(value);
   const editorRef = useRef<ReturnType<typeof useEditor> | null>(null);
   const onSaveRef = useRef(onSave);
+  const onCursorChangeRef = useRef(onCursorChange);
 
   // Convert markdown to HTML for TipTap
   const markdownToHtml = (markdown: string): string => {
@@ -65,7 +76,8 @@ export function TipTapEditor({
       return '';
     }
     try {
-      return turndownService.turndown(html).trim();
+      const markdown = turndownService.turndown(html);
+      return markdown.trim();
     } catch (error) {
       console.error('Error converting HTML to markdown:', error);
       return '';
@@ -81,6 +93,8 @@ export function TipTapEditor({
             class: 'code-block',
           },
         },
+        // Disable built-in link to avoid duplicate extension warning
+        link: false,
       }),
       Link.configure({
         openOnClick: false,
@@ -95,14 +109,17 @@ export function TipTapEditor({
     content: markdownToHtml(value),
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none p-4 min-h-[400px]',
+        class: `prose prose-sm max-w-none focus:outline-none ${fullScreen ? 'p-8 min-h-full' : noBorder ? 'py-0 px-0 entry-block' : 'p-4 min-h-[400px]'}`,
       },
       handleKeyDown: (view, event) => {
         // Handle Command+Enter (Mac) or Ctrl+Enter (Windows/Linux) to save
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
           event.preventDefault();
           
-          if (onSaveRef.current) {
+          if (onSaveRef.current && editorRef.current) {
+            // Capture current cursor position before save
+            const { from, to } = editorRef.current.state.selection;
+            
             // Get HTML from the ProseMirror content element
             const proseMirrorElement = view.dom.querySelector('.ProseMirror') || view.dom;
             const html = proseMirrorElement.innerHTML;
@@ -116,6 +133,23 @@ export function TipTapEditor({
             
             // Immediately save
             onSaveRef.current(markdown);
+            
+            // Restore cursor position after save (content doesn't change, so position should be preserved)
+            // Use setTimeout to ensure the save callback has completed
+            setTimeout(() => {
+              if (editorRef.current && !editorRef.current.isDestroyed) {
+                try {
+                  // Ensure cursor position is still valid (in case content changed)
+                  const docLength = editorRef.current.state.doc.content.size;
+                  const safeFrom = Math.min(from, docLength);
+                  const safeTo = Math.min(to, docLength);
+                  editorRef.current.commands.setTextSelection({ from: safeFrom, to: safeTo });
+                } catch (error) {
+                  // If restoring selection fails, just ensure editor is focused
+                  editorRef.current.view.focus();
+                }
+              }
+            }, 0);
           }
           return true;
         }
@@ -125,6 +159,24 @@ export function TipTapEditor({
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
       const markdown = htmlToMarkdown(html);
+      
+      // Track cursor position in markdown
+      if (onCursorChangeRef.current) {
+        try {
+          const { from } = editor.state.selection;
+          // Get plain text content up to cursor position
+          const textBeforeCursor = editor.state.doc.textBetween(0, from);
+          // Use text length as approximation for markdown position
+          // This works reasonably well since we're mainly interested in which entry section the cursor is in
+          const position = textBeforeCursor.length;
+          onCursorChangeRef.current(position);
+        } catch (error) {
+          // Fallback: use markdown length as approximation
+          if (onCursorChangeRef.current) {
+            onCursorChangeRef.current(markdown.length);
+          }
+        }
+      }
       
       // Only call onChange if the markdown actually changed
       if (markdown !== previousValueRef.current) {
@@ -142,13 +194,39 @@ export function TipTapEditor({
         }
       }
     },
+    onSelectionUpdate: ({ editor }) => {
+      // Track cursor position on selection changes (cursor moves, clicks, etc.)
+      if (onCursorChangeRef.current) {
+        try {
+          const { from } = editor.state.selection;
+          const textBeforeCursor = editor.state.doc.textBetween(0, from);
+          const position = textBeforeCursor.length;
+          onCursorChangeRef.current(position);
+        } catch (error) {
+          // Fallback: use current markdown length
+          const markdown = htmlToMarkdown(editor.getHTML());
+          onCursorChangeRef.current(markdown.length);
+        }
+      }
+    },
   });
 
-  // Store editor reference and update onSave ref
+  // Store editor reference and update refs
   useEffect(() => {
     editorRef.current = editor;
     onSaveRef.current = onSave;
-  }, [editor, onSave]);
+    onCursorChangeRef.current = onCursorChange;
+  }, [editor, onSave, onCursorChange]);
+
+  // Expose focus method via ref
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      if (editor && !editor.isDestroyed) {
+        editor.commands.setTextSelection(0);
+        editor.view.focus();
+      }
+    },
+  }), [editor]);
 
   // Update editor content when value prop changes externally
   useEffect(() => {
@@ -158,7 +236,40 @@ export function TipTapEditor({
       
       // Only update if the content is actually different
       if (html !== currentHtml) {
+        // Capture current selection before updating content
+        const { from, to } = editor.state.selection;
+        
+        // Update content
         editor.commands.setContent(html);
+        
+        // Restore cursor position if content is the same length (user likely just saved)
+        // Otherwise, preserve position if it's still valid
+        setTimeout(() => {
+          if (editor && !editor.isDestroyed) {
+            try {
+              const docLength = editor.state.doc.content.size;
+              // If content length is similar, try to restore position
+              // Otherwise, place cursor at end
+              if (docLength > 0) {
+                const safeFrom = Math.min(from, docLength);
+                const safeTo = Math.min(to, docLength);
+                editor.commands.setTextSelection({ from: safeFrom, to: safeTo });
+              }
+            } catch (error) {
+              // If restoring fails, place cursor at end
+              try {
+                const docLength = editor.state.doc.content.size;
+                if (docLength > 0) {
+                  editor.commands.setTextSelection(docLength);
+                }
+              } catch {
+                // Fallback: just focus
+                editor.view.focus();
+              }
+            }
+          }
+        }, 0);
+        
         previousValueRef.current = value;
       }
     }
@@ -177,10 +288,16 @@ export function TipTapEditor({
     return null;
   }
 
+  const containerClasses = fullScreen
+    ? 'h-full overflow-auto'
+    : noBorder
+    ? 'w-full'
+    : 'h-full border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent';
+
   return (
-    <div className="w-full h-full border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
+    <div className={containerClasses}>
       <EditorContent editor={editor} />
     </div>
   );
-}
+});
 

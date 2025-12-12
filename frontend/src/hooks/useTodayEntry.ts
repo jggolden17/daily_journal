@@ -3,7 +3,15 @@ import { journalApi } from '../api/journal';
 import { useAuth } from './useAuth';
 import type { JournalEntry } from '../types/journal';
 
-export function useTodayEntry() {
+function getIsoDateOrToday(date?: string) {
+  if (date && !Number.isNaN(new Date(date).getTime())) {
+    return new Date(date).toISOString().split('T')[0];
+  }
+  return new Date().toISOString().split('T')[0];
+}
+
+export function useTodayEntry(date?: string) {
+  const targetDate = getIsoDateOrToday(date);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -12,9 +20,9 @@ export function useTodayEntry() {
   const currentUserId = user?.id || null;
   const previousUserIdRef = useRef<string | null>(null);
   const hasInitializedRef = useRef(false);
+  const previousDateRef = useRef<string | null>(null);
 
   const loadEntries = useCallback(async () => {
-    // Don't try to load if not authenticated
     if (!currentUserId) {
       setEntries([]);
       setLoading(false);
@@ -23,58 +31,59 @@ export function useTodayEntry() {
 
     setLoading(true);
     try {
-      const todayEntries = await journalApi.getToday();
-      setEntries(todayEntries);
+      const dayEntries = await journalApi.getByDate(targetDate);
+      setEntries(dayEntries);
     } catch (error) {
-      // Only log if it's not an auth error
       const errorMessage = error instanceof Error ? error.message : String(error);
       if (!errorMessage.includes('not authenticated')) {
-        console.error('Failed to load today entries:', error);
+        console.error('Failed to load entries:', error);
       }
       setEntries([]);
     } finally {
       setLoading(false);
     }
-  }, [currentUserId]);
+  }, [currentUserId, targetDate]);
 
-  // Load entries when user changes (login/logout) or on initial load
   useEffect(() => {
     const previousUserId = previousUserIdRef.current;
     const hasInitialized = hasInitializedRef.current;
-    
-    // If user changed (login/logout) or this is the first time we've determined the user state
-    if (currentUserId !== previousUserId || !hasInitialized) {
+    const dateChanged = previousDateRef.current !== targetDate;
+
+    if (currentUserId !== previousUserId || !hasInitialized || dateChanged) {
       previousUserIdRef.current = currentUserId;
+      previousDateRef.current = targetDate;
       hasInitializedRef.current = true;
       loadEntries();
     }
-  }, [currentUserId, loadEntries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, targetDate]);
 
-  const createEntry = useCallback(async (content: string) => {
-    if (isSavingRef.current) {
-      return; // Prevent duplicate saves
-    }
-    isSavingRef.current = true;
-    setSaving(true);
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const saved = await journalApi.createEntry(today, content);
-      setEntries((prev) => {
-        // Check if entry already exists to prevent duplicates
-        if (prev.some((e) => e.id === saved.id)) {
-          return prev;
-        }
-        return [...prev, saved];
-      });
-      return saved;
-    } catch (error) {
-      console.error('Failed to create entry:', error);
-      throw error;
-    } finally {
-      setSaving(false);
-      isSavingRef.current = false;
-    }
-  }, []);
+  const createEntry = useCallback(
+    async (content: string) => {
+      if (isSavingRef.current) {
+        return;
+      }
+      isSavingRef.current = true;
+      setSaving(true);
+      try {
+        const saved = await journalApi.createEntry(targetDate, content);
+        setEntries((prev) => {
+          if (prev.some((e) => e.id === saved.id)) {
+            return prev;
+          }
+          return [...prev, saved];
+        });
+        return saved;
+      } catch (error) {
+        console.error('Failed to create entry:', error);
+        throw error;
+      } finally {
+        setSaving(false);
+        isSavingRef.current = false;
+      }
+    },
+    [targetDate]
+  );
 
   const updateEntry = useCallback(async (id: string, content: string) => {
     setSaving(true);
