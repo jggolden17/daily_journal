@@ -25,16 +25,17 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
   const [editedEntryIds, setEditedEntryIds] = useState<Set<string>>(new Set());
   const [draftEntryId, setDraftEntryId] = useState<string | null>(null);
   const [draftContent, setDraftContent] = useState('');
-  const [draftTimestamp, setDraftTimestamp] = useState(() => new Date(`${targetDate}T00:00:00.000Z`).toISOString());
+  const [draftTimestamp, setDraftTimestamp] = useState(() => new Date().toISOString());
   const [showToast, setShowToast] = useState(false);
   const isSavingDraftRef = useRef(false);
   const isInitialLoadRef = useRef(true);
 
   // Reset draft when date changes
   useEffect(() => {
+    const nextDraftTimestamp = new Date().toISOString();
     setDraftEntryId(null);
     setDraftContent('');
-    setDraftTimestamp(new Date(`${targetDate}T00:00:00.000Z`).toISOString());
+    setDraftTimestamp(nextDraftTimestamp);
     isInitialLoadRef.current = true;
   }, [targetDate]);
 
@@ -53,9 +54,10 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
         const serverContent = matching.content || '';
         setDraftContent((prev) => (prev === serverContent ? prev : serverContent));
       } else if (!isSavingDraftRef.current) {
+        const nextDraftTimestamp = new Date().toISOString();
         setDraftEntryId(null);
         setDraftContent('');
-        setDraftTimestamp(new Date(`${targetDate}T00:00:00.000Z`).toISOString());
+        setDraftTimestamp(nextDraftTimestamp);
       }
     }
 
