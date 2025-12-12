@@ -70,13 +70,14 @@ class EncryptionService:
             return decrypted_bytes.decode("utf-8")
         except InvalidToken as e:
             log.error(
-                f"Decryption failed: Invalid token (wrong key or corrupted data): {e}"
+                f"Decryption failed: Invalid token (wrong key or corrupted data): {e}",
+                exc_info=True,
             )
             raise ValueError(
                 "Failed to decrypt data. This may indicate corrupted data or an incorrect encryption key."
             ) from e
         except Exception as e:
-            log.error(f"Decryption failed: {e}")
+            log.error(f"Decryption failed: {e}", exc_info=True)
             raise ValueError(f"Failed to decrypt data: {e}") from e
 
 
