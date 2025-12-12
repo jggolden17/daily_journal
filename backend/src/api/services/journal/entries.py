@@ -31,7 +31,7 @@ def populate_create_model(
 
     # don't store raw md, encrypt it first
     raw_markdown = schema_dict.get("raw_markdown")
-    if raw_markdown:
+    if raw_markdown is not None:
         try:
             encrypted_markdown = encryption_service.encrypt(raw_markdown)
             if encrypted_markdown is None:
@@ -127,7 +127,7 @@ class EntriesService(
         for idx, schema in enumerate(schemas):
             schema_dict = schema.model_dump(exclude_unset=True)
             raw_markdown = schema_dict.get("raw_markdown")
-            if raw_markdown:
+            if raw_markdown is not None:
                 try:
                     encrypted_markdown = self._encryption_service.encrypt(raw_markdown)
                     if encrypted_markdown is None:
