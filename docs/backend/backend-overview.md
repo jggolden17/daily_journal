@@ -153,15 +153,3 @@ alembic upgrade head
 
 See the [Backend Testing Guide](backend-testing.md) for detailed testing information.
 
-## Dependencies
-
-Key dependencies, all managed by poetry:
-- `fastapi` - Web framework
-- `sqlalchemy` - ORM
-- `alembic` - Database migrations
-- `pydantic` - Data validation
-- `asyncpg` - PostgreSQL async driver
-- `uvicorn` - ASGI server
-
-See `pyproject.toml` for the complete list of dependencies.
-

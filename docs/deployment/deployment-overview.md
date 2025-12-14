@@ -1,7 +1,6 @@
 # Deployment overview
 
 TODO: 
-- split building of backend artifact from deployment
 - script for making new DB user
 - terraform
 
@@ -10,7 +9,7 @@ TODO:
 Everything other than the DB is in Google Cloud Platform (see [ADR](../ADRs/adr-001-db-choice.md) for explanation of why DB is separate — basically cost).
 
 - **Auth**: Google OAuth
-- **Database**: Either Neon or Ai (serverless PostgreSQL)
+- **Database**: Neon (serverless PostgreSQL), but could easily use any other managed pg service
 - **Backend**: Cloud Run (FastAPI service)
 - **Frontend**: Cloud Storage + Cloud CDN (static React app)
 - **Secrets**: Secret Manager (credentials and configs)
@@ -30,7 +29,7 @@ export GCP_REGION="west-europe2"
 ```
 2. Google OAuth:
     - create credentials (OAuth client ID, internal only, with yourself as a test user) in GCP APIs & Services. Scope required includes `email`, `profile`, `openid`
-    - Add local frontend url to authorised origins & URIs 
+    - Add local frontend url to authorised origins & URIs (if you want to use google oauth locally)
 3. Create DB user & grant appropriate perms
 3. Set up core infra
 ```zsh
@@ -52,6 +51,8 @@ chmod +x deployment/setup-scripts/run-migrations.sh
 
 1. Build & deploy backend (will split this into two steps later)
 ```zsh
+chmod +x deployment/build-backend.sh
+./deployment/build-backend.sh
 chmod +x deployment/deploy-backend.sh
 ./deployment/deploy-backend.sh
 ```
