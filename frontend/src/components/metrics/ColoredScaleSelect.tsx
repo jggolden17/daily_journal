@@ -6,7 +6,7 @@ interface ColoredScaleSelectProps {
 
 // Color gradient from black (1) to orange/amber (3-4) to green (7)
 // Using neutral, muted tones
-const getColorForValue = (value: number): string => {
+export const getColorForValue = (value: number): string => {
   if (value === 1) return '#2d2d2d'; // Dark gray/black
   if (value === 2) return '#525252'; // Medium dark gray
   if (value === 3) return '#c9730a'; // Muted amber/orange

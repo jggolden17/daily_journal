@@ -113,22 +113,10 @@ export function BurgerMenu() {
                   Home
                 </button>
                 <button
-                  onClick={() => handleNavigate('/add-metrics')}
-                  className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                >
-                  Add Metrics
-                </button>
-                <button
                   onClick={() => handleNavigate('/metrics')}
                   className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
                 >
                   View Metric Charts
-                </button>
-                <button
-                  onClick={() => handleNavigate('/calendar')}
-                  className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                >
-                  Calendar
                 </button>
                 <div className="border-t border-gray-200 my-2" />
                 <button

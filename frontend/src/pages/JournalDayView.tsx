@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { EntryBlock } from '../components/editor/EntryBlock';
 import { useTodayEntry } from '../hooks/useTodayEntry';
 import { DateHeader } from '../components/layout/DateHeader';
+import { MetricsIconButton } from '../components/metrics/MetricsIconButton';
+import { MetricsPopup } from '../components/metrics/MetricsPopup';
+import { useMetrics } from '../hooks/useMetrics';
 
 interface JournalDayViewProps {
   date: string;
@@ -20,6 +23,9 @@ function normalizeDate(date: string): string {
 export function JournalDayView({ date, loadingMessage = 'Loading entries...', fullScreen = true }: JournalDayViewProps) {
   const targetDate = useMemo(() => normalizeDate(date), [date]);
   const { entries, loading, saving, createEntry, updateEntry, deleteEntry, refresh } = useTodayEntry(targetDate);
+  const { metrics, loading: metricsLoading, saving: metricsSaving, saveMetrics } = useMetrics(targetDate);
+  
+  const [isMetricsPopupOpen, setIsMetricsPopupOpen] = useState(false);
 
   const [entryContents, setEntryContents] = useState<Record<string, string>>({});
   const [editedEntryIds, setEditedEntryIds] = useState<Set<string>>(new Set());
@@ -245,6 +251,20 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
           autoSaveDelay={1500}
         />
       </div>
+      
+      {/* Metrics Icon Button */}
+      <MetricsIconButton onClick={() => setIsMetricsPopupOpen(true)} />
+      
+      {/* Metrics Popup */}
+      <MetricsPopup
+        isOpen={isMetricsPopupOpen}
+        onClose={() => setIsMetricsPopupOpen(false)}
+        date={targetDate}
+        metrics={metrics}
+        loading={metricsLoading}
+        saving={metricsSaving}
+        onSave={saveMetrics}
+      />
     </div>
   );
 }
