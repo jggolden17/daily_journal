@@ -9,6 +9,8 @@ declare global {
   }
 }
 
+const isLocalEnvironment = import.meta.env.VITE_ENVIRONMENT === 'local';
+
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -64,20 +66,27 @@ export function LoginPage() {
           </div>
         )}
 
-        <div className="mt-6 flex justify-center">
-          {loading ? (
-            <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-sm text-gray-600">Signing in...</p>
-            </div>
-          ) : (
-            <GoogleLogin
-              key={location.pathname}
-              onSuccess={handleGoogleSuccess}
-              onError={handleGoogleError}
-            />
-          )}
-        </div>
+        {!isLocalEnvironment && (
+          <div className="mt-6 flex justify-center">
+            {loading ? (
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="mt-2 text-sm text-gray-600">Signing in...</p>
+              </div>
+            ) : (
+              <GoogleLogin
+                key={location.pathname}
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+              />
+            )}
+          </div>
+        )}
+        {isLocalEnvironment && (
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">Auto-logging in with mock user...</p>
+          </div>
+        )}
       </div>
     </div>
   );

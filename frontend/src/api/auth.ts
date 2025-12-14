@@ -14,6 +14,9 @@ export interface AuthResponse {
 
 const TOKEN_KEY = 'auth_token';
 
+// Mock token constant - must match backend
+export const MOCK_GOOGLE_ID_TOKEN = 'mock-google-id-token-dev';
+
 // Token storage helpers
 export const tokenStorage = {
   get: (): string | null => {

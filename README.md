@@ -1,8 +1,8 @@
 # Daily Journal
 
-This is largely a practice project. It's a simple web-app where I can write daily notes in markdown & track things like my sleep, physical activity, hours worked, etc. The focus of the project is the backend (the frontend was built with assistance from ai coding tools).
+This is largely a practice project. It's a simple web-app where I can write daily notes in markdown & track things like my sleep, physical activity, hours worked, etc. The focus of the project is the backend (the react code for the frontend was built with assistance from ai coding tools).
 
-Currently, it's only designed to be used by me. At a later stage I'll adapt it slightly so it can be locally ran by anyone, with the deployed app still restricted to me but set up such that anyone could replicate the implementation.
+Though the deployed code is designed to be only used by me, the repo is set up so anyone can run it locally and deploy their own version if they'd like.
 
 ## Overview
 
@@ -13,7 +13,7 @@ I used to use a simple google-sheet for tracking various metrics & capturing sho
 - **View summaries of metrics** in some date-range, with avgs., projections, etc.
 
 ### Planned next steps
-- [ ] "dev-mode" in which (for local/offline dev) gcloud auth is bypassed
+- [x] "dev-mode" in which (for local/offline dev) gcloud auth is bypassed
 - basic deployment in GCP:
     - [x] dev deployment
     - [ ] produciton deployment

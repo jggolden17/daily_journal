@@ -2,7 +2,6 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { TodayPage } from './pages/TodayPage';
 import { DayPage } from './pages/DayPage';
-import { CalendarPage } from './pages/CalendarPage';
 import { MetricsPage } from './pages/MetricsPage';
 import { LoginPage } from './pages/LoginPage';
 import { useAuth } from './hooks/useAuth';
@@ -63,16 +62,6 @@ function App() {
             <ProtectedRoute>
               <AppLayout>
                 <DayPage />
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/calendar"
-          element={
-            <ProtectedRoute>
-              <AppLayout>
-                <CalendarPage />
               </AppLayout>
             </ProtectedRoute>
           }

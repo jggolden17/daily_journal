@@ -1,6 +1,7 @@
+import uuid
 from math import ceil
 from typing import Annotated
-from fastapi import HTTPException, Query
+from fastapi import HTTPException, Query, status
 from api.api_schemas.generic import (
     DataResponse,
     PageParams,
@@ -8,6 +9,7 @@ from api.api_schemas.generic import (
     SingleItemResponse,
     SortParams,
 )
+from api.db.models.core.users import UsersModel
 
 
 def validate_page_params(
@@ -56,3 +58,27 @@ def create_paged_response(
         sort_direction=sort_params.sort_direction,
         data=data,
     )
+
+
+def validate_user_id_authorization(
+    user_id: uuid.UUID,
+    current_user: UsersModel,
+) -> None:
+    """prevent an authenticated user getting an alt user's data"""
+    if user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Cannot access or modify other users' data",
+        )
+
+
+def validate_user_ids_authorization(
+    user_ids: list[uuid.UUID],
+    current_user: UsersModel,
+) -> None:
+    """prevent an authenticated user getting an alt user's data"""
+    if not all(user_id == current_user.id for user_id in user_ids):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Cannot access or modify other users' data",
+        )

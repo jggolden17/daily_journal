@@ -30,18 +30,19 @@ def populate_create_model(
     schema_dict = schema.model_dump()
 
     # don't store raw md, encrypt it first
-    if "raw_markdown" in schema_dict and schema_dict["raw_markdown"] is not None:
+    raw_markdown = schema_dict.get("raw_markdown")
+    if raw_markdown is not None:
         try:
-            encrypted_markdown = encryption_service.encrypt(schema_dict["raw_markdown"])
-            if encrypted_markdown is not None:
-                schema_dict["raw_markdown"] = encrypted_markdown
-            else:
+            encrypted_markdown = encryption_service.encrypt(raw_markdown)
+            if encrypted_markdown is None:
+                log.error("populate_create_model() - encryption returned None")
                 raise ValueError(
                     "Encryption returned None - data would be stored unencrypted"
                 )
+            # TODO: change name of col from raw to encrypted to make this clear
+            schema_dict["raw_markdown"] = encrypted_markdown
         except Exception as e:
 
-            log.error(f"Failed to encrypt markdown: {e}")
             raise ValueError(
                 f"Encryption failed - cannot store unencrypted data: {e}"
             ) from e
@@ -80,7 +81,8 @@ class EntriesService(
     def _decrypt_entry(self, entry: EntriesModel) -> EntriesModel:
         """Decrypt raw_markdown field in an entry model."""
         if entry.raw_markdown is not None:
-            decrypted = self._encryption_service.decrypt(entry.raw_markdown)
+            encrypted_value = entry.raw_markdown
+            decrypted = self._encryption_service.decrypt(encrypted_value)
             # seen issues w type checker & SQLAlchemy mapped columns, so use setattr here
             setattr(entry, "raw_markdown", decrypted)
         return entry
@@ -122,26 +124,19 @@ class EntriesService(
         """Patch entries with encrypted raw_markdown and return decrypted."""
         # encrypt md before patching
         encrypted_schemas = []
-        for schema in schemas:
+        for idx, schema in enumerate(schemas):
             schema_dict = schema.model_dump(exclude_unset=True)
-            if (
-                "raw_markdown" in schema_dict
-                and schema_dict["raw_markdown"] is not None
-            ):
+            raw_markdown = schema_dict.get("raw_markdown")
+            if raw_markdown is not None:
                 try:
-                    encrypted_markdown = self._encryption_service.encrypt(
-                        schema_dict["raw_markdown"]
-                    )
-                    if encrypted_markdown is not None:
-                        schema_dict["raw_markdown"] = encrypted_markdown
-                        encrypted_schema = EntryPatchSchema(**schema_dict)
-                        encrypted_schemas.append(encrypted_schema)
-                    else:
+                    encrypted_markdown = self._encryption_service.encrypt(raw_markdown)
+                    if encrypted_markdown is None:
                         raise ValueError("Encryption returned None during patch")
+                    schema_dict["raw_markdown"] = encrypted_markdown
+                    encrypted_schema = EntryPatchSchema(**schema_dict)
+                    encrypted_schemas.append(encrypted_schema)
                 except Exception as e:
-                    from api.utils.logger import log
 
-                    log.error(f"Failed to encrypt markdown during patch: {e}")
                     raise ValueError(f"Encryption failed during patch: {e}") from e
             else:
                 encrypted_schemas.append(schema)
@@ -183,10 +178,16 @@ class EntriesService(
             user_id, date
         )
         # Decrypt raw_markdown for all entries
-        return [
+        # expunge entries before decrypting to prevent SQLAlchemy from writing decrypted values back
+        entries_list = [entry for entry, _ in entries_with_threads]
+        await self._prevent_sqlalch_tracking_entries_further(entries_list)
+        decrypted_results = [
             (self._decrypt_entry(entry), thread)
-            for entry, thread in entries_with_threads
+            for entry, thread in zip(
+                entries_list, [thread for _, thread in entries_with_threads]
+            )
         ]
+        return decrypted_results
 
     async def get_days_with_entries(
         self, user_id: uuid.UUID, start_date: dt.date, end_date: dt.date

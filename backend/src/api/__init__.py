@@ -27,3 +27,15 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(
 
 # encryption config
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
+
+
+def is_local_environment() -> bool:
+    """go through diff auth route if in local mode. Using func as may have >1 check"""
+
+    if os.environ.get("ENVIRONMENT", "").lower() == "local":
+        return True
+
+    return False
+
+
+MOCK_GOOGLE_ID_TOKEN = "mock-google-id-token-dev"
