@@ -53,7 +53,7 @@ You will need to run db migrations before the backend will work. For detailed se
     - [ ] structured logs in GCP with alerting for failures / warnings. Also, currently think backend logs with traceback are shared with client, which is fine for me but bad practice in prod
     - [ ] simple rate-limiting on backend
 - improve data-ops:
-    - [ ] automatic backups of data (probs into cheap cloudstorage buckets)
+    - [x] automatic backups of data (probs into cheap cloudstorage buckets)
 - simple feature improvement:
     - [x] markdown editor / preview merged into one
     - [x] more deliberate front-end design
