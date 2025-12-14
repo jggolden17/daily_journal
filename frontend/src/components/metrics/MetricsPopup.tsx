@@ -10,7 +10,7 @@ interface MetricsPopupProps {
   metrics: DailyMetrics | null;
   loading: boolean;
   saving: boolean;
-  onSave: (metrics: DailyMetrics) => Promise<void>;
+  onSave: (metrics: DailyMetrics) => Promise<DailyMetrics>;
 }
 
 type Page = 1 | 2 | 3;
@@ -27,20 +27,6 @@ function formatDateString(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-// Convert ISO datetime string to datetime-local format (YYYY-MM-DDTHH:mm)
-function isoToDateTimeLocal(isoString: string | null | undefined): string {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) return '';
-  // Get local date/time components
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 // Convert datetime-local format to ISO string

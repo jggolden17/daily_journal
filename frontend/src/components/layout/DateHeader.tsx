@@ -99,7 +99,6 @@ export function DateHeader({ currentDate, isSaving = false, hasUnsavedChanges = 
         isOpen={isCalendarOpen}
         onClose={handleCloseCalendar}
         selectedDate={currentDate}
-        triggerElement={dateButtonRef.current}
       />
     </>
   );

@@ -8,10 +8,9 @@ interface CalendarPopupProps {
   isOpen: boolean;
   onClose: () => void;
   selectedDate: string; // YYYY-MM-DD format
-  triggerElement?: HTMLElement | null; // Element to position relative to
 }
 
-export function CalendarPopup({ isOpen, onClose, selectedDate, triggerElement }: CalendarPopupProps) {
+export function CalendarPopup({ isOpen, onClose, selectedDate }: CalendarPopupProps) {
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState<Date>(() => {

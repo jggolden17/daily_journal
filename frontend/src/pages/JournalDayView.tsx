@@ -108,7 +108,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
   );
 
   const handleEntrySave = useCallback(
-    async (id: string, content: string, isManualSave = false) => {
+    async (id: string, content: string, _isManualSave = false) => {
       const trimmed = content.trim();
       const isEdited = editedEntryIds.has(id);
 
@@ -142,7 +142,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
   }, []);
 
   const handleDraftSave = useCallback(
-    async (content: string, isManualSave = false) => {
+    async (content: string, _isManualSave = false) => {
       const trimmed = content.trim();
 
       if (!trimmed || isSavingDraftRef.current) {
