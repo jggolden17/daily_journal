@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { EntryBlock } from '../components/editor/EntryBlock';
-import { Toast } from '../components/ui/Toast';
 import { useTodayEntry } from '../hooks/useTodayEntry';
+import { DateHeader } from '../components/layout/DateHeader';
 
 interface JournalDayViewProps {
   date: string;
@@ -19,14 +19,14 @@ function normalizeDate(date: string): string {
 
 export function JournalDayView({ date, loadingMessage = 'Loading entries...', fullScreen = true }: JournalDayViewProps) {
   const targetDate = useMemo(() => normalizeDate(date), [date]);
-  const { entries, loading, createEntry, updateEntry, deleteEntry, refresh } = useTodayEntry(targetDate);
+  const { entries, loading, saving, createEntry, updateEntry, deleteEntry, refresh } = useTodayEntry(targetDate);
 
   const [entryContents, setEntryContents] = useState<Record<string, string>>({});
   const [editedEntryIds, setEditedEntryIds] = useState<Set<string>>(new Set());
   const [draftEntryId, setDraftEntryId] = useState<string | null>(null);
   const [draftContent, setDraftContent] = useState('');
   const [draftTimestamp, setDraftTimestamp] = useState(() => new Date().toISOString());
-  const [showToast, setShowToast] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
   const isSavingDraftRef = useRef(false);
   const isInitialLoadRef = useRef(true);
 
@@ -37,6 +37,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
     setDraftContent('');
     setDraftTimestamp(nextDraftTimestamp);
     isInitialLoadRef.current = true;
+    setHasInitialized(false);
   }, [targetDate]);
 
   // Keep local entry content in sync with loaded entries and manage the draft editor
@@ -62,7 +63,10 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
     }
 
     isInitialLoadRef.current = false;
-  }, [entries, draftEntryId, targetDate]);
+    if (!hasInitialized && entries.length >= 0) {
+      setHasInitialized(true);
+    }
+  }, [entries, draftEntryId, targetDate, hasInitialized]);
 
   const markEdited = useCallback((id: string) => {
     setEditedEntryIds((prev) => {
@@ -75,9 +79,26 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
   const handleEntryChange = useCallback(
     (id: string, content: string) => {
       setEntryContents((prev) => ({ ...prev, [id]: content }));
-      markEdited(id);
+      // Only mark as edited if content differs from server content
+      const serverEntry = entries.find((e) => e.id === id);
+      if (serverEntry) {
+        const serverContent = serverEntry.content || '';
+        if (content.trim() !== serverContent.trim()) {
+          markEdited(id);
+        } else {
+          // Content matches server, remove from edited set if present
+          setEditedEntryIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        }
+      } else {
+        // No server entry yet, mark as edited
+        markEdited(id);
+      }
     },
-    [markEdited]
+    [markEdited, entries]
   );
 
   const handleEntrySave = useCallback(
@@ -103,10 +124,6 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
           next.delete(id);
           return next;
         });
-
-        if (isManualSave) {
-          setShowToast(true);
-        }
       } catch (error) {
         console.error('Failed to save entry', error);
       }
@@ -139,10 +156,6 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
           await updateEntry(draftEntryId, trimmed);
           setDraftContent(trimmed);
         }
-
-        if (isManualSave) {
-          setShowToast(true);
-        }
       } catch (error) {
         console.error('Failed to save entry', error);
       } finally {
@@ -161,6 +174,34 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
     [entries, draftEntryId]
   );
 
+  // Calculate if there are unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    // Don't show unsaved changes during initial load or before entries are synced
+    if (loading || !hasInitialized) {
+      return false;
+    }
+
+    // Check if any existing entries have unsaved changes
+    if (editedEntryIds.size > 0) {
+      return true;
+    }
+
+    // Check draft content
+    if (draftEntryId) {
+      // If draft has an entry ID, compare with server content
+      const serverEntry = entries.find((e) => e.id === draftEntryId);
+      if (serverEntry) {
+        const serverContent = serverEntry.content || '';
+        return draftContent.trim() !== serverContent.trim();
+      }
+    } else {
+      // If no draft entry ID, check if draft has content
+      return draftContent.trim() !== '';
+    }
+
+    return false;
+  }, [loading, hasInitialized, editedEntryIds, draftEntryId, draftContent, entries]);
+
   if (loading) {
     return (
       <div className={fullScreen ? 'fixed inset-0 flex items-center justify-center bg-white' : 'flex items-center justify-center'}>
@@ -171,12 +212,13 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
 
   const containerClass = fullScreen ? 'fixed inset-0 bg-white' : 'min-h-screen bg-white';
   const innerClass = fullScreen
-    ? 'w-full max-w-3xl mx-auto px-4 pt-20 pb-8 h-full overflow-auto'
-    : 'w-full max-w-3xl mx-auto px-4 pt-20 pb-8';
+    ? 'w-full max-w-3xl mx-auto px-4 pt-5 pb-8 h-full overflow-auto'
+    : 'w-full max-w-3xl mx-auto px-4 pt-5 pb-8';
 
   return (
     <div className={containerClass}>
       <div className={innerClass}>
+        <DateHeader currentDate={targetDate} isSaving={saving} hasUnsavedChanges={hasUnsavedChanges} />
         {otherEntries.map((entry, index) => (
           <EntryBlock
             key={entry.id}
@@ -203,12 +245,6 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
           autoSaveDelay={1500}
         />
       </div>
-      <Toast
-        message="Saved"
-        show={showToast}
-        onHide={() => setShowToast(false)}
-        duration={2000}
-      />
     </div>
   );
 }

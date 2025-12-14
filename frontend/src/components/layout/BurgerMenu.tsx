@@ -4,9 +4,31 @@ import { useAuth } from '../../hooks/useAuth';
 
 export function BurgerMenu() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
   const { logout } = useAuth();
+
+  // Show/hide burger menu based on mouse proximity to left edge
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      const proximityThreshold = 80; // pixels from left edge
+      const isNearLeftEdge = event.clientX <= proximityThreshold;
+      
+      // Also check if mouse is over the button or menu
+      const isOverButton = buttonRef.current?.contains(event.target as Node);
+      const isOverMenu = menuRef.current?.contains(event.target as Node);
+      
+      setIsVisible(isNearLeftEdge || isOverButton || isOverMenu || isOpen);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [isOpen]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -40,12 +62,15 @@ export function BurgerMenu() {
     <div ref={menuRef} className="relative z-50">
       {/* Hamburger Icon */}
       <button
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 left-4 z-50 p-2 rounded-md hover:bg-gray-100 transition-colors bg-white shadow-md"
+        className={`fixed top-4 left-4 z-50 p-2 rounded-md hover:bg-gray-100 transition-all duration-200 bg-white shadow-md ${
+          isVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
         aria-label="Menu"
       >
         <svg
-          className="w-6 h-6 text-gray-700"
+          className="w-5 h-5 text-gray-700"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"

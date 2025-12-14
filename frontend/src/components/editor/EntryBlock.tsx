@@ -103,7 +103,7 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
         <hr className="border-0 border-t-2 border-gray-200 mt-3 mb-3" aria-hidden="true" />
       )}
       {(entry || timestampOverride) && (
-        <div className="text-xs font-semibold text-gray-400 mb-0.5">
+        <div className="text-xs font-semibold text-gray-400 mb-1">
           {entry ? formatTime(entry.createdAt) : timestampOverride ? formatTime(timestampOverride) : ''}
         </div>
       )}
