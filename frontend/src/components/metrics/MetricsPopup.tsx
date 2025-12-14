@@ -106,8 +106,8 @@ export function MetricsPopup({ isOpen, onClose, date, metrics, loading, saving, 
     }
 
     setSleepQuality(metrics?.sleep_quality ?? null);
-    setPaidProductivity(metrics?.hours_paid_work ?? null);
-    setPersonalProductivity(metrics?.hours_personal_work ?? null);
+    setPaidProductivity(metrics?.paid_productivity ?? null);
+    setPersonalProductivity(metrics?.personal_productivity ?? null);
     setPhysicalActivity(metrics?.physical_activity ?? null);
     setOverallMood(metrics?.overall_mood ?? null);
     setCurrentPage(1);
@@ -172,8 +172,8 @@ export function MetricsPopup({ isOpen, onClose, date, metrics, loading, saving, 
       asleep_by: asleepByIso,
       awoke_at: awokeAtIso,
       sleep_quality: sleepQuality,
-      hours_paid_work: paidProductivity,
-      hours_personal_work: personalProductivity,
+      paid_productivity: paidProductivity,
+      personal_productivity: personalProductivity,
       physical_activity: physicalActivity,
       overall_mood: overallMood,
     };

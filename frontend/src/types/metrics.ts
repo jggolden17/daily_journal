@@ -7,8 +7,8 @@ export interface Metric {
   sleep_quality: number | null;
   physical_activity: number | null; // minutes or intensity score
   overall_mood: number | null;
-  hours_paid_work: number | null;
-  hours_personal_work: number | null;
+  paid_productivity: number | null;
+  personal_productivity: number | null;
   additional_metrics: Record<string, unknown> | null;
   created_at: string; // ISO datetime string
   updated_at: string; // ISO datetime string
@@ -23,8 +23,8 @@ export interface DailyMetrics {
   sleep_quality?: number | null; // 1-7 scale
   physical_activity?: number | null; // 1-7 scale
   overall_mood?: number | null; // 1-7 scale
-  hours_paid_work?: number | null;
-  hours_personal_work?: number | null;
+  paid_productivity?: number | null;
+  personal_productivity?: number | null;
 }
 
 export interface MetricsSummary {
@@ -34,8 +34,8 @@ export interface MetricsSummary {
     sleep_quality?: number;
     physical_activity?: number;
     overall_mood?: number;
-    hours_paid_work?: number;
-    hours_personal_work?: number;
+    paid_productivity?: number;
+    personal_productivity?: number;
     [key: string]: number | undefined;
   };
   data: DailyMetrics[];

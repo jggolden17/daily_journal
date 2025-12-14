@@ -3,12 +3,13 @@
 import datetime as dt
 import httpx
 import pytest
+from tests.conftest import AuthenticatedClient
 
 
 class TestEntriesEndpoints:
     """Tests for /api/latest/entries endpoints."""
 
-    def test_get_entries_empty(self, client: httpx.Client):
+    def test_get_entries_empty(self, client: AuthenticatedClient):
         """Test GET /api/latest/entries returns empty list initially."""
         response = client.get("/api/latest/entries")
         assert response.status_code == 200
@@ -19,7 +20,7 @@ class TestEntriesEndpoints:
         assert len(data["data"]) == 0
         assert data["total_records"] == 0
 
-    def test_create_entries_valid(self, client: httpx.Client, test_thread: dict):
+    def test_create_entries_valid(self, client: AuthenticatedClient, test_thread: dict):
         """Test POST /api/latest/entries with valid data."""
         entry_data = [
             {
@@ -44,7 +45,7 @@ class TestEntriesEndpoints:
         client.delete(f"/api/latest/entries/{created_entry['id']}")
 
     def test_create_entries_invalid_thread_id(
-        self, client: httpx.Client, load_test_data
+        self, client: AuthenticatedClient, load_test_data
     ):
         """Test POST /api/latest/entries with non-existent thread_id."""
         test_data = load_test_data("journal/entries/invalid_thread_id.json")
@@ -53,11 +54,13 @@ class TestEntriesEndpoints:
         # Should fail validation or return error
         assert response.status_code in [400, 404, 422]
 
-    def test_create_entry_with_date(self, client: httpx.Client, test_user: dict):
+    def test_create_entry_with_date(
+        self, client: AuthenticatedClient, authenticated_user: dict
+    ):
         """Test POST /api/latest/entries with date (creates entry and upserts thread)."""
         entry_date = dt.date.today()
         entry_data = {
-            "user_id": str(test_user["id"]),
+            "user_id": str(authenticated_user["id"]),
             "date": str(entry_date),
             "raw_markdown": "Entry created with date endpoint",
         }
@@ -78,7 +81,7 @@ class TestEntriesEndpoints:
         client.delete(f"/api/latest/entries/{created_entry['id']}")
 
     def test_get_entries_by_date(
-        self, client: httpx.Client, test_user: dict, test_thread: dict
+        self, client: AuthenticatedClient, authenticated_user: dict, test_thread: dict
     ):
         """Test GET /api/latest/entries/date/{date}."""
         entry_data = {
@@ -97,7 +100,7 @@ class TestEntriesEndpoints:
             thread_date = test_thread["date"]
             response = client.get(
                 f"/api/latest/entries/date/{thread_date}",
-                params={"user_id": str(test_user["id"])},
+                params={"user_id": str(authenticated_user["id"])},
             )
             assert response.status_code == 200
 
@@ -117,14 +120,14 @@ class TestEntriesEndpoints:
             client.delete(f"/api/latest/entries/{entry_id}")
 
     def test_delete_entry_with_thread_cleanup(
-        self, client: httpx.Client, test_user: dict
+        self, client: AuthenticatedClient, authenticated_user: dict
     ):
         """Test DELETE /api/latest/entries/{entry_id} cleans up thread if last entry."""
         entry_date = dt.date.today()
 
         # Create entry (which creates thread)
         entry_data = {
-            "user_id": str(test_user["id"]),
+            "user_id": str(authenticated_user["id"]),
             "date": str(entry_date),
             "raw_markdown": "Only entry in thread",
         }
@@ -147,14 +150,14 @@ class TestEntriesEndpoints:
         thread_data = thread_response.json()
         assert len(thread_data["data"]) == 0
 
-    def test_get_calendar(self, client: httpx.Client, test_user: dict):
+    def test_get_calendar(self, client: AuthenticatedClient, authenticated_user: dict):
         """Test GET /api/latest/entries/calendar."""
         start_date = dt.date.today()
         end_date = start_date + dt.timedelta(days=7)
 
         # Create entry for today
         entry_data = {
-            "user_id": str(test_user["id"]),
+            "user_id": str(authenticated_user["id"]),
             "date": str(start_date),
             "raw_markdown": "Calendar test entry",
         }
@@ -171,7 +174,7 @@ class TestEntriesEndpoints:
             response = client.get(
                 "/api/latest/entries/calendar",
                 params={
-                    "user_id": str(test_user["id"]),
+                    "user_id": str(authenticated_user["id"]),
                     "start_date": str(start_date),
                     "end_date": str(end_date),
                 },
@@ -203,10 +206,13 @@ class TestEntriesEndpoints:
             # Cleanup
             client.delete(f"/api/latest/entries/{entry_id}")
 
-    def test_patch_entries(self, client: httpx.Client, test_entry: dict):
+    def test_patch_entries(self, client: AuthenticatedClient, test_entry: dict):
         """Test PATCH /api/latest/entries."""
         patch_data = [
-            {"id": str(test_entry["id"]), "raw_markdown": "Updated markdown content"}
+            {
+                "id": str(test_entry["id"]),
+                "raw_markdown": "Updated markdown content",
+            }
         ]
 
         response = client.patch("/api/latest/entries", json=patch_data)
@@ -217,7 +223,7 @@ class TestEntriesEndpoints:
         result = response.json()
         assert result["data"][0]["raw_markdown"] == "Updated markdown content"
 
-    def test_delete_entries(self, client: httpx.Client, test_entry: dict):
+    def test_delete_entries(self, client: AuthenticatedClient, test_entry: dict):
         """Test DELETE /api/latest/entries."""
         entry_id = test_entry["id"]
 

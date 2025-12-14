@@ -6,6 +6,7 @@ from api.db.models.journal.entries import EntriesModel
 from api.api_schemas.journal.entries import (
     EntryCreateSchema,
     EntryPatchSchema,
+    EncryptedPatchSchema,
 )
 from api.services.base_service import BaseService
 from api.services.journal.threads import ThreadsService
@@ -30,7 +31,7 @@ def populate_create_model(
     schema_dict = schema.model_dump()
 
     # don't store raw md, encrypt it first
-    raw_markdown = schema_dict.get("raw_markdown")
+    raw_markdown = schema_dict.pop("raw_markdown", None)
     if raw_markdown is not None:
         try:
             encrypted_markdown = encryption_service.encrypt(raw_markdown)
@@ -39,8 +40,7 @@ def populate_create_model(
                 raise ValueError(
                     "Encryption returned None - data would be stored unencrypted"
                 )
-            # TODO: change name of col from raw to encrypted to make this clear
-            schema_dict["raw_markdown"] = encrypted_markdown
+            schema_dict["encrypted_markdown"] = encrypted_markdown
         except Exception as e:
 
             raise ValueError(
@@ -79,16 +79,16 @@ class EntriesService(
         self._encryption_service = get_encryption_service()
 
     def _decrypt_entry(self, entry: EntriesModel) -> EntriesModel:
-        """Decrypt raw_markdown field in an entry model."""
-        if entry.raw_markdown is not None:
-            encrypted_value = entry.raw_markdown
+        """Decrypt encrypted_markdown field in an entry model and set as raw_markdown."""
+        if entry.encrypted_markdown is not None:
+            encrypted_value = entry.encrypted_markdown
             decrypted = self._encryption_service.decrypt(encrypted_value)
             # seen issues w type checker & SQLAlchemy mapped columns, so use setattr here
             setattr(entry, "raw_markdown", decrypted)
         return entry
 
     def _decrypt_entries(self, entries: list[EntriesModel]) -> list[EntriesModel]:
-        """Decrypt raw_markdown field in a list of entry models."""
+        """Decrypt encrypted_markdown field in a list of entry models."""
         for entry in entries:
             self._decrypt_entry(entry)
         return entries
@@ -112,7 +112,7 @@ class EntriesService(
         self,
         schemas: list[EntryCreateSchema],
     ) -> list[EntriesModel]:
-        """Create entries with encrypted raw_markdown and return decrypted."""
+        """Create entries with encrypted markdown and return decrypted."""
         entries = await super().create(schemas=schemas)
         await self._prevent_sqlalch_tracking_entries_further(entries)
         return self._decrypt_entries(entries)
@@ -121,19 +121,19 @@ class EntriesService(
         self,
         schemas: list[EntryPatchSchema],
     ) -> list[EntriesModel]:
-        """Patch entries with encrypted raw_markdown and return decrypted."""
+        """Patch entries with encrypted markdown and return decrypted."""
         # encrypt md before patching
-        encrypted_schemas = []
+        encrypted_schemas: list[EntryPatchSchema] = []
         for idx, schema in enumerate(schemas):
             schema_dict = schema.model_dump(exclude_unset=True)
-            raw_markdown = schema_dict.get("raw_markdown")
+            raw_markdown = schema_dict.pop("raw_markdown", None)
             if raw_markdown is not None:
                 try:
                     encrypted_markdown = self._encryption_service.encrypt(raw_markdown)
                     if encrypted_markdown is None:
                         raise ValueError("Encryption returned None during patch")
-                    schema_dict["raw_markdown"] = encrypted_markdown
-                    encrypted_schema = EntryPatchSchema(**schema_dict)
+                    schema_dict["encrypted_markdown"] = encrypted_markdown
+                    encrypted_schema = EncryptedPatchSchema(**schema_dict)
                     encrypted_schemas.append(encrypted_schema)
                 except Exception as e:
 
@@ -149,7 +149,7 @@ class EntriesService(
         self,
         id: uuid.UUID,
     ) -> EntriesModel | None:
-        """Get entry by ID and decrypt raw_markdown."""
+        """Get entry by ID and decrypt encrypted_markdown."""
         entry = await super().get_one_or_none_by_id(id)
         if entry:
             return self._decrypt_entry(entry)
@@ -161,7 +161,7 @@ class EntriesService(
         page_params: "PageParams",
         sort_params: "SortParams",
     ) -> tuple[list[EntriesModel], int]:
-        """Get paginated entries and decrypt raw_markdown."""
+        """Get paginated entries and decrypt encrypted_markdown."""
         entries, total = await super().get_all_paginated(
             ids=ids,
             page_params=page_params,
@@ -177,7 +177,7 @@ class EntriesService(
         entries_with_threads = await data_manager_inst.get_entries_by_date(
             user_id, date
         )
-        # Decrypt raw_markdown for all entries
+        # Decrypt encrypted_markdown for all entries
         # expunge entries before decrypting to prevent SQLAlchemy from writing decrypted values back
         entries_list = [entry for entry, _ in entries_with_threads]
         await self._prevent_sqlalch_tracking_entries_further(entries_list)

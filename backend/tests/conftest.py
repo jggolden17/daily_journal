@@ -691,19 +691,24 @@ def test_user(client: AuthenticatedClient) -> Generator[dict, None, None]:
 
 
 @pytest.fixture
-def test_thread(client: httpx.Client, test_user: dict) -> Generator[dict, None, None]:
+def test_thread(
+    client: AuthenticatedClient, authenticated_user: dict
+) -> Generator[dict, None, None]:
     """
     Create a test thread, yield it, and delete it after the test.
 
     Requires:
-        test_user: A user fixture
+        authenticated_user: The authenticated user fixture
 
     Yields:
         Thread data dictionary
     """
     import datetime as dt
 
-    thread_data = {"user_id": str(test_user["id"]), "date": str(dt.date.today())}
+    thread_data = {
+        "user_id": str(authenticated_user["id"]),
+        "date": str(dt.date.today()),
+    }
 
     response = client.post("/api/latest/threads", json=[thread_data])
     response.raise_for_status()
@@ -721,7 +726,9 @@ def test_thread(client: httpx.Client, test_user: dict) -> Generator[dict, None, 
 
 
 @pytest.fixture
-def test_entry(client: httpx.Client, test_thread: dict) -> Generator[dict, None, None]:
+def test_entry(
+    client: AuthenticatedClient, test_thread: dict
+) -> Generator[dict, None, None]:
     """
     Create a test entry, yield it, and delete it after the test.
 
@@ -750,7 +757,9 @@ def test_entry(client: httpx.Client, test_thread: dict) -> Generator[dict, None,
 
 
 @pytest.fixture
-def test_metric(client: httpx.Client, test_thread: dict) -> Generator[dict, None, None]:
+def test_metric(
+    client: AuthenticatedClient, test_thread: dict
+) -> Generator[dict, None, None]:
     """
     Create a test metric, yield it, and delete it after the test.
 

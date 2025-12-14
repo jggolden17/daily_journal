@@ -521,7 +521,7 @@ class BaseDataManager(Generic[TModel], SessionMixin):
                 journal.entries
                 (
                     thread_id,
-                    raw_markdown
+                    encrypted_markdown
                 )
             VALUES
                 (
@@ -532,10 +532,10 @@ class BaseDataManager(Generic[TModel], SessionMixin):
                 DO UPDATE
                     SET
                         updated_at = EXCLUDED.updated_at,
-                        raw_markdown = EXCLUDED.raw_markdown
+                        encrypted_markdown = EXCLUDED.encrypted_markdown
                     WHERE (
-                        -- only update if raw_markdown is different from the proposed insert
-                        journal.entries.raw_markdown IS DISTINCT FROM EXCLUDED.raw_markdown
+                        -- only update if encrypted_markdown is different from the proposed insert
+                        journal.entries.encrypted_markdown IS DISTINCT FROM EXCLUDED.encrypted_markdown
                     )
             RETURNING
                 journal.entries.id,

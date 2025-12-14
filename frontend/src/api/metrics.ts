@@ -23,8 +23,8 @@ interface MetricResponse {
   sleep_quality: number | null;
   physical_activity: number | null;
   overall_mood: number | null;
-  hours_paid_work: number | null;
-  hours_personal_work: number | null;
+  paid_productivity: number | null;
+  personal_productivity: number | null;
   additional_metrics: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
@@ -40,8 +40,8 @@ function metricToDailyMetrics(metric: MetricResponse, date: string): DailyMetric
     sleep_quality: metric.sleep_quality,
     physical_activity: metric.physical_activity,
     overall_mood: metric.overall_mood,
-    hours_paid_work: metric.hours_paid_work,
-    hours_personal_work: metric.hours_personal_work,
+    paid_productivity: metric.paid_productivity,
+    personal_productivity: metric.personal_productivity,
   };
 }
 
@@ -57,8 +57,8 @@ function dailyMetricsToMetricCreate(
     sleep_quality: metrics.sleep_quality ?? null,
     physical_activity: metrics.physical_activity ?? null,
     overall_mood: metrics.overall_mood ?? null,
-    hours_paid_work: metrics.hours_paid_work ?? null,
-    hours_personal_work: metrics.hours_personal_work ?? null,
+    paid_productivity: metrics.paid_productivity ?? null,
+    personal_productivity: metrics.personal_productivity ?? null,
     additional_metrics: null,
   };
 }
@@ -144,8 +144,8 @@ export const metricsApi = {
         'sleep_quality',
         'physical_activity',
         'overall_mood',
-        'hours_paid_work',
-        'hours_personal_work',
+        'paid_productivity',
+        'personal_productivity',
       ] as const;
       
       numericFields.forEach((field) => {

@@ -84,16 +84,16 @@ export function MetricsPage() {
                 <div className="text-2xl font-bold">{summary.averages.overall_mood.toFixed(1)}</div>
               </div>
             )}
-            {summary.averages.hours_paid_work !== undefined && (
+            {summary.averages.paid_productivity !== undefined && (
               <div>
                 <div className="text-sm text-gray-600">Paid Work (hrs)</div>
-                <div className="text-2xl font-bold">{summary.averages.hours_paid_work.toFixed(1)}</div>
+                <div className="text-2xl font-bold">{summary.averages.paid_productivity.toFixed(1)}</div>
               </div>
             )}
-            {summary.averages.hours_personal_work !== undefined && (
+            {summary.averages.personal_productivity !== undefined && (
               <div>
                 <div className="text-sm text-gray-600">Personal Work (hrs)</div>
-                <div className="text-2xl font-bold">{summary.averages.hours_personal_work.toFixed(1)}</div>
+                <div className="text-2xl font-bold">{summary.averages.personal_productivity.toFixed(1)}</div>
               </div>
             )}
           </div>
@@ -135,23 +135,23 @@ export function MetricsPage() {
           </div>
         )}
 
-        {summary.data.some((d) => d.hours_paid_work !== undefined && d.hours_paid_work !== null) && (
+        {summary.data.some((d) => d.paid_productivity !== undefined && d.paid_productivity !== null) && (
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <MetricsChart
               data={summary.data}
-              metricKey="hours_paid_work"
-              label="Hours Paid Work"
+              metricKey="paid_productivity"
+              label="Paid productivity"
               color="#ffc658"
             />
           </div>
         )}
 
-        {summary.data.some((d) => d.hours_personal_work !== undefined && d.hours_personal_work !== null) && (
+        {summary.data.some((d) => d.personal_productivity !== undefined && d.personal_productivity !== null) && (
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <MetricsChart
               data={summary.data}
-              metricKey="hours_personal_work"
-              label="Hours Personal Work"
+              metricKey="personal_productivity"
+              label="Personal productivity"
               color="#00ff00"
             />
           </div>

@@ -63,6 +63,12 @@ class EntryPatchSchema(BaseModel):
     raw_markdown: Optional[str] = None
 
 
+class EncryptedPatchSchema(EntryPatchSchema):
+    """Schema for patching entries with encrypted markdown (internal use only)"""
+
+    encrypted_markdown: Optional[str] = None
+
+
 class CalendarEntrySchema(BaseModel):
     """Schema for calendar entry data"""
 

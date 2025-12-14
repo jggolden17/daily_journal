@@ -2,12 +2,13 @@
 
 import httpx
 import pytest
+from tests.conftest import AuthenticatedClient
 
 
 class TestMetricsEndpoints:
     """Tests for /api/latest/metrics endpoints."""
 
-    def test_get_metrics_empty(self, client: httpx.Client):
+    def test_get_metrics_empty(self, client: AuthenticatedClient):
         """Test GET /api/latest/metrics returns empty list initially."""
         response = client.get("/api/latest/metrics")
         assert response.status_code == 200
@@ -18,7 +19,7 @@ class TestMetricsEndpoints:
         assert len(data["data"]) == 0
         assert data["total_records"] == 0
 
-    def test_create_metrics_valid(self, client: httpx.Client, test_thread: dict):
+    def test_create_metrics_valid(self, client: AuthenticatedClient, test_thread: dict):
         """Test POST /api/latest/metrics with valid data."""
         metric_data = [
             {
@@ -26,8 +27,8 @@ class TestMetricsEndpoints:
                 "sleep_quality": 6,
                 "physical_activity": 6,
                 "overall_mood": 7,
-                "hours_paid_work": 8.0,
-                "hours_personal_work": 2.0,
+                "paid_productivity": 8.0,
+                "personal_productivity": 2.0,
             }
         ]
 
@@ -48,7 +49,7 @@ class TestMetricsEndpoints:
         client.delete("/api/latest/metrics", params={"ids": [created_metric["id"]]})
 
     def test_create_metrics_invalid_thread_id(
-        self, client: httpx.Client, load_test_data
+        self, client: AuthenticatedClient, load_test_data
     ):
         """Test POST /api/latest/metrics with non-existent thread_id."""
         test_data = load_test_data("journal/metrics/invalid_thread_id.json")
@@ -58,7 +59,7 @@ class TestMetricsEndpoints:
         assert response.status_code in [400, 404, 422]
 
     def test_create_metrics_with_additional_metrics(
-        self, client: httpx.Client, test_thread: dict
+        self, client: AuthenticatedClient, test_thread: dict
     ):
         """Test POST /api/latest/metrics with additional_metrics JSONB field."""
         metric_data = [
@@ -86,7 +87,7 @@ class TestMetricsEndpoints:
         # Cleanup
         client.delete("/api/latest/metrics", params={"ids": [created_metric["id"]]})
 
-    def test_get_metrics_by_ids(self, client: httpx.Client, test_metric: dict):
+    def test_get_metrics_by_ids(self, client: AuthenticatedClient, test_metric: dict):
         """Test GET /api/latest/metrics with specific IDs."""
         metric_id = test_metric["id"]
 
@@ -97,7 +98,7 @@ class TestMetricsEndpoints:
         assert len(data["data"]) == 1
         assert data["data"][0]["id"] == metric_id
 
-    def test_patch_metrics(self, client: httpx.Client, test_metric: dict):
+    def test_patch_metrics(self, client: AuthenticatedClient, test_metric: dict):
         """Test PATCH /api/latest/metrics."""
         patch_data = [
             {"id": str(test_metric["id"]), "sleep_quality": 5, "overall_mood": 3}
@@ -110,7 +111,7 @@ class TestMetricsEndpoints:
         assert result["data"][0]["sleep_quality"] == 5
         assert result["data"][0]["overall_mood"] == 3
 
-    def test_upsert_metrics(self, client: httpx.Client, test_thread: dict):
+    def test_upsert_metrics(self, client: AuthenticatedClient, test_thread: dict):
         """Test POST /api/latest/metrics/upsert."""
         upsert_data = [
             {
@@ -145,7 +146,7 @@ class TestMetricsEndpoints:
             # Cleanup
             client.delete("/api/latest/metrics", params={"ids": [metric_id]})
 
-    def test_delete_metrics(self, client: httpx.Client, test_metric: dict):
+    def test_delete_metrics(self, client: AuthenticatedClient, test_metric: dict):
         """Test DELETE /api/latest/metrics."""
         metric_id = test_metric["id"]
 
@@ -163,7 +164,7 @@ class TestMetricsEndpoints:
         assert len(data["data"]) == 0
 
     def test_create_metrics_with_datetime_fields(
-        self, client: httpx.Client, test_thread: dict
+        self, client: AuthenticatedClient, test_thread: dict
     ):
         """Test POST /api/latest/metrics with datetime fields (asleep_by, awoke_at)."""
         import datetime as dt
@@ -189,7 +190,9 @@ class TestMetricsEndpoints:
         # Cleanup
         client.delete("/api/latest/metrics", params={"ids": [created_metric["id"]]})
 
-    def test_metrics_unique_constraint(self, client: httpx.Client, test_thread: dict):
+    def test_metrics_unique_constraint(
+        self, client: AuthenticatedClient, test_thread: dict
+    ):
         """Test that metrics have unique constraint on thread_id."""
         metric_data = [{"thread_id": str(test_thread["id"]), "sleep_quality": 6}]
 

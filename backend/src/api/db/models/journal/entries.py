@@ -15,4 +15,4 @@ class EntriesModel(Base, TimestampMixin):
         ForeignKey("journal.threads.id", name="journal_thread_fk"),
         nullable=False,
     )
-    raw_markdown: Mapped[str] = mapped_column(String, nullable=True)
+    encrypted_markdown: Mapped[str] = mapped_column(String, nullable=True)

@@ -22,6 +22,6 @@ class MetricsModel(Base, TimestampMixin):
     sleep_quality: Mapped[float] = mapped_column(Float, nullable=True)
     physical_activity: Mapped[float] = mapped_column(Float, nullable=True)
     overall_mood: Mapped[float] = mapped_column(Float, nullable=True)
-    hours_paid_work: Mapped[float] = mapped_column(Float, nullable=True)
-    hours_personal_work: Mapped[float] = mapped_column(Float, nullable=True)
+    paid_productivity: Mapped[float] = mapped_column(Float, nullable=True)
+    personal_productivity: Mapped[float] = mapped_column(Float, nullable=True)
     additional_metrics: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

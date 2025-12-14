@@ -14,8 +14,8 @@ class MetricSchema(BaseModel):
     sleep_quality: int | None
     physical_activity: int | None
     overall_mood: int | None
-    hours_paid_work: float | None
-    hours_personal_work: float | None
+    paid_productivity: float | None
+    personal_productivity: float | None
     additional_metrics: dict | None
     created_at: dt.datetime
     updated_at: dt.datetime
@@ -34,8 +34,8 @@ class MetricCreateSchema(BaseModel):
     sleep_quality: Optional[int] = Field(None, ge=1, le=7)
     physical_activity: Optional[int] = Field(None, ge=1, le=7)
     overall_mood: Optional[int] = Field(None, ge=1, le=7)
-    hours_paid_work: Optional[float] = None
-    hours_personal_work: Optional[float] = None
+    paid_productivity: Optional[float] = None
+    personal_productivity: Optional[float] = None
     additional_metrics: Optional[dict] = None
 
 
@@ -48,8 +48,8 @@ class MetricUpdateSchema(BaseModel):
     sleep_quality: Optional[int] = Field(None, ge=1, le=7)
     physical_activity: Optional[int] = Field(None, ge=1, le=7)
     overall_mood: Optional[int] = Field(None, ge=1, le=7)
-    hours_paid_work: Optional[float] = None
-    hours_personal_work: Optional[float] = None
+    paid_productivity: Optional[float] = None
+    personal_productivity: Optional[float] = None
     additional_metrics: Optional[dict] = None
 
 
@@ -63,8 +63,8 @@ class MetricPatchSchema(BaseModel):
     sleep_quality: Optional[int] = Field(None, ge=1, le=7)
     physical_activity: Optional[int] = Field(None, ge=1, le=7)
     overall_mood: Optional[int] = Field(None, ge=1, le=7)
-    hours_paid_work: Optional[float] = None
-    hours_personal_work: Optional[float] = None
+    paid_productivity: Optional[float] = None
+    personal_productivity: Optional[float] = None
     additional_metrics: Optional[dict] = None
 
 
@@ -77,6 +77,6 @@ class MetricUpsertSchema(BaseModel):
     sleep_quality: Optional[int] = Field(None, ge=1, le=7)
     physical_activity: Optional[int] = Field(None, ge=1, le=7)
     overall_mood: Optional[int] = Field(None, ge=1, le=7)
-    hours_paid_work: Optional[float] = None
-    hours_personal_work: Optional[float] = None
+    paid_productivity: Optional[float] = None
+    personal_productivity: Optional[float] = None
     additional_metrics: Optional[dict] = None
