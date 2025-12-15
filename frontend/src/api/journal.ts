@@ -12,6 +12,7 @@ interface EntryWithDateResponse {
   thread_id: string;
   raw_markdown: string | null;
   date: string; // ISO date string (YYYY-MM-DD)
+  written_at: string; // ISO datetime string
   created_at: string; // ISO datetime string
   updated_at: string; // ISO datetime string
 }
@@ -20,6 +21,7 @@ interface EntryResponse {
   id: string;
   thread_id: string;
   raw_markdown: string | null;
+  written_at: string; // ISO datetime string
   created_at: string; // ISO datetime string
   updated_at: string; // ISO datetime string
 }
@@ -44,6 +46,7 @@ function mapEntryToFrontend(entry: EntryWithDateResponse): JournalEntry {
     id: entry.id,
     date: entry.date,
     content: entry.raw_markdown || '',
+    writtenAt: entry.written_at,
     createdAt: entry.created_at,
     updatedAt: entry.updated_at,
   };
@@ -58,6 +61,7 @@ function mapEntryToFrontendWithDate(
     id: entry.id,
     date: date,
     content: entry.raw_markdown || '',
+    writtenAt: entry.written_at,
     createdAt: entry.created_at,
     updatedAt: entry.updated_at,
   };
@@ -103,7 +107,7 @@ export const journalApi = {
     return mapEntryToFrontend(response.data);
   },
 
-  async updateEntry(id: string, content: string): Promise<JournalEntry> {
+  async updateEntry(id: string, content: string, writtenAt?: string): Promise<JournalEntry> {
     // First, get the entry to preserve the date
     const user_id = await getUserId();
     const today = getTodayDate();
@@ -142,15 +146,23 @@ export const journalApi = {
       throw new Error('Entry not found');
     }
     
+    // Build patch payload
+    const patchPayload: { id: string; raw_markdown?: string; written_at?: string } = {
+      id: id,
+    };
+    
+    if (content !== undefined) {
+      patchPayload.raw_markdown = content;
+    }
+    
+    if (writtenAt !== undefined) {
+      patchPayload.written_at = writtenAt;
+    }
+    
     // update using PATCH endpoint
     const patchResponse = await apiClient.patch<
       SingleItemResponse<EntryResponse[]>
-    >('/latest/entries', [
-      {
-        id: id,
-        raw_markdown: content,
-      },
-    ]);
+    >('/latest/entries', [patchPayload]);
     
     if (!patchResponse.data || patchResponse.data.length === 0) {
       throw new Error('Failed to update entry: no data returned');

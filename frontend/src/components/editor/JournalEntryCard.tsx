@@ -5,7 +5,7 @@ import type { JournalEntry } from '../../types/journal';
 
 interface JournalEntryCardProps {
   entry: JournalEntry;
-  onUpdate: (id: string, content: string) => Promise<void>;
+  onUpdate: (id: string, content: string, writtenAt?: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   saving?: boolean;
 }
@@ -14,6 +14,17 @@ export function JournalEntryCard({ entry, onUpdate, onDelete, saving = false }: 
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(entry.content);
+  const [isEditingTimestamp, setIsEditingTimestamp] = useState(false);
+  const [timestampValue, setTimestampValue] = useState(() => {
+    // Convert ISO string to datetime-local format (YYYY-MM-DDTHH:mm)
+    const date = new Date(entry.writtenAt);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  });
 
   // Sync content when entry changes (but not when editing)
   useEffect(() => {
@@ -21,6 +32,19 @@ export function JournalEntryCard({ entry, onUpdate, onDelete, saving = false }: 
       setContent(entry.content);
     }
   }, [entry.content, isEditing]);
+
+  // Sync timestamp when entry changes (but not when editing timestamp)
+  useEffect(() => {
+    if (!isEditingTimestamp) {
+      const date = new Date(entry.writtenAt);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      setTimestampValue(`${year}-${month}-${day}T${hours}:${minutes}`);
+    }
+  }, [entry.writtenAt, isEditingTimestamp]);
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -43,8 +67,17 @@ export function JournalEntryCard({ entry, onUpdate, onDelete, saving = false }: 
 
   const handleSave = async () => {
     try {
-      await onUpdate(entry.id, content);
+      // Convert datetime-local format to ISO string if timestamp was changed
+      let writtenAt: string | undefined;
+      if (isEditingTimestamp) {
+        const date = new Date(timestampValue);
+        if (!isNaN(date.getTime())) {
+          writtenAt = date.toISOString();
+        }
+      }
+      await onUpdate(entry.id, content, writtenAt);
       setIsEditing(false);
+      setIsEditingTimestamp(false);
     } catch (error) {
       console.error('Failed to save entry:', error);
     }
@@ -75,7 +108,7 @@ export function JournalEntryCard({ entry, onUpdate, onDelete, saving = false }: 
           <div className="flex-1">
             <div className="flex items-center space-x-2 mb-2">
               <span className="text-sm font-medium text-gray-900">
-                {formatTime(entry.createdAt)}
+                {formatTime(entry.writtenAt)}
               </span>
               {entry.updatedAt !== entry.createdAt && (
                 <span className="text-xs text-gray-500">
@@ -131,11 +164,36 @@ export function JournalEntryCard({ entry, onUpdate, onDelete, saving = false }: 
           {isEditing ? (
             <div>
               <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                <div className="text-sm text-gray-600">
-                  Created: {formatDateTime(entry.createdAt)}
-                  {entry.updatedAt !== entry.createdAt && (
-                    <> • Last updated: {formatDateTime(entry.updatedAt)}</>
-                  )}
+                <div className="flex flex-col space-y-2">
+                  <div className="text-sm text-gray-600">
+                    Written: {isEditingTimestamp ? (
+                      <input
+                        type="datetime-local"
+                        value={timestampValue}
+                        onChange={(e) => setTimestampValue(e.target.value)}
+                        className="ml-2 px-2 py-1 border border-gray-300 rounded text-sm"
+                      />
+                    ) : (
+                      <>
+                        {formatDateTime(entry.writtenAt)}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsEditingTimestamp(true);
+                          }}
+                          className="ml-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                        >
+                          Edit
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Created: {formatDateTime(entry.createdAt)}
+                    {entry.updatedAt !== entry.createdAt && (
+                      <> • Last updated: {formatDateTime(entry.updatedAt)}</>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   {saving && <span className="text-sm text-gray-500">Saving...</span>}
@@ -148,7 +206,15 @@ export function JournalEntryCard({ entry, onUpdate, onDelete, saving = false }: 
                   <button
                     onClick={() => {
                       setIsEditing(false);
+                      setIsEditingTimestamp(false);
                       setContent(entry.content);
+                      const date = new Date(entry.writtenAt);
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      const hours = String(date.getHours()).padStart(2, '0');
+                      const minutes = String(date.getMinutes()).padStart(2, '0');
+                      setTimestampValue(`${year}-${month}-${day}T${hours}:${minutes}`);
                     }}
                     className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
                   >
@@ -168,6 +234,9 @@ export function JournalEntryCard({ entry, onUpdate, onDelete, saving = false }: 
           ) : (
             <div className="p-4">
               <div className="text-sm text-gray-600 mb-4">
+                Written: {formatDateTime(entry.writtenAt)}
+              </div>
+              <div className="text-xs text-gray-500 mb-4">
                 Created: {formatDateTime(entry.createdAt)}
                 {entry.updatedAt !== entry.createdAt && (
                   <> • Last updated: {formatDateTime(entry.updatedAt)}</>

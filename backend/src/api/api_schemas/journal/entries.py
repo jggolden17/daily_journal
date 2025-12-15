@@ -10,6 +10,7 @@ class EntrySchema(BaseModel):
     id: uuid.UUID
     thread_id: uuid.UUID
     raw_markdown: str | None
+    written_at: dt.datetime
     created_at: dt.datetime
     updated_at: dt.datetime
 
@@ -18,15 +19,10 @@ class EntrySchema(BaseModel):
         from_attributes = True
 
 
-class EntryWithDateSchema(BaseModel):
+class EntryWithDateSchema(EntrySchema):
     """Response schema for entry data with date from thread"""
 
-    id: uuid.UUID
-    thread_id: uuid.UUID
-    raw_markdown: str | None
     date: dt.date  # Date from the thread
-    created_at: dt.datetime
-    updated_at: dt.datetime
 
     class Config:
 
@@ -53,6 +49,7 @@ class EntryUpdateSchema(BaseModel):
 
     thread_id: uuid.UUID
     raw_markdown: Optional[str] = None
+    written_at: Optional[dt.datetime] = None
 
 
 class EntryPatchSchema(BaseModel):
@@ -61,12 +58,14 @@ class EntryPatchSchema(BaseModel):
     id: uuid.UUID
     thread_id: Optional[uuid.UUID] = None
     raw_markdown: Optional[str] = None
+    written_at: Optional[dt.datetime] = None
 
 
 class EncryptedPatchSchema(EntryPatchSchema):
     """Schema for patching entries with encrypted markdown (internal use only)"""
 
     encrypted_markdown: Optional[str] = None
+    written_at: Optional[dt.datetime] = None
 
 
 class CalendarEntrySchema(BaseModel):
