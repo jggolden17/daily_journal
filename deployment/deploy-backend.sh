@@ -61,6 +61,8 @@ JWT_ALGORITHM: HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "30"
 CORS_ORIGINS: "${CORS_ORIGINS}"
 USE_SSL: "true"
+COOKIE_SECURE: "true"
+COOKIE_SAME_SITE: "none"
 EOF
 
 if gcloud run services describe "$SERVICE_NAME" --region="$GCP_REGION" --project="$GCP_PROJECT_ID" &>/dev/null; then
