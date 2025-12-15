@@ -36,15 +36,24 @@ TEST_JWT_SECRET_KEY = os.environ.get(
 os.environ["JWT_SECRET_KEY"] = TEST_JWT_SECRET_KEY
 os.environ["JWT_ALGORITHM"] = os.environ.get("JWT_ALGORITHM", "HS256")
 os.environ["JWT_ACCESS_TOKEN_EXPIRE_MINUTES"] = os.environ.get(
-    "JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"
+    "JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "15"
 )
+os.environ["JWT_REFRESH_TOKEN_EXPIRE_DAYS"] = os.environ.get(
+    "JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"
+)
+os.environ["COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "false")
+os.environ["COOKIE_SAME_SITE"] = os.environ.get("COOKIE_SAME_SITE", "lax")
 
 # add src directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from api.utils.logger import log
 from api import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME  # noqa: E402
-from api.services.core.auth import create_access_token  # noqa: E402
+from api.services.core.auth import (
+    create_access_token,
+    create_refresh_token,
+    hash_refresh_token,
+)  # noqa: E402
 from api.db.models.core.users import UsersModel  # noqa: E402
 
 
@@ -206,8 +215,13 @@ def start_test_api_server(db_name: str, port: int = TEST_API_PORT) -> subprocess
     env["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", TEST_JWT_SECRET_KEY)
     env["JWT_ALGORITHM"] = os.environ.get("JWT_ALGORITHM", "HS256")
     env["JWT_ACCESS_TOKEN_EXPIRE_MINUTES"] = os.environ.get(
-        "JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"
+        "JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "15"
     )
+    env["JWT_REFRESH_TOKEN_EXPIRE_DAYS"] = os.environ.get(
+        "JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"
+    )
+    env["COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "false")
+    env["COOKIE_SAME_SITE"] = os.environ.get("COOKIE_SAME_SITE", "lax")
     # start uvicorn server
     log.info(f"Using Python: {python_exe}")
     log.info(f"PYTHONPATH: {env.get('PYTHONPATH', 'not set')}")
@@ -454,9 +468,50 @@ atexit.register(_cleanup_test_api)
 # --------------------------------------------------------------------------------------------------------------------------------
 
 
-def _create_test_token(user_id: uuid.UUID) -> str:
-    """create JWT access token for a test user"""
-    return create_access_token(user_id)
+def _create_test_token(user_id: uuid.UUID) -> tuple[str, str]:
+    """create JWT access token and refresh token for a test user.
+    Returns tuple of (access_token, refresh_token).
+    """
+    access_token = create_access_token(user_id)
+    refresh_token = create_refresh_token()
+    return access_token, refresh_token
+
+
+def _create_test_refresh_token_record(
+    db_name: str, user_id: uuid.UUID, refresh_token: str
+) -> None:
+    """create a refresh token record in the database for testing."""
+    import datetime as dt
+
+    token_hash = hash_refresh_token(refresh_token)
+    expires_at = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=7)
+
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=db_name,
+    )
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO core.refresh_tokens (id, user_id, token_hash, expires_at, created_at, updated_at)
+            VALUES (gen_random_uuid(), %s, %s, %s, %s, %s)
+            """,
+            (
+                str(user_id),
+                token_hash,
+                expires_at,
+                dt.datetime.now(dt.timezone.utc),
+                dt.datetime.now(dt.timezone.utc),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _create_test_user_in_db(
@@ -539,12 +594,21 @@ def _delete_test_user_from_db(db_name: str, user_id: str) -> None:
 
 class AuthenticatedClient:
     """
-    wrapper around httpx.Client, automatically adds auth header to all requests
+    wrapper around httpx.Client, automatically adds auth cookies to all requests
     """
 
-    def __init__(self, base_url: str, token: str, timeout: httpx.Timeout):
-        self._token = token
-        self._client = httpx.Client(base_url=base_url, timeout=timeout)
+    def __init__(
+        self,
+        base_url: str,
+        access_token: str,
+        refresh_token: str,
+        timeout: httpx.Timeout,
+    ):
+        self._access_token = access_token
+        self._refresh_token = refresh_token
+        self._client = httpx.Client(
+            base_url=base_url, timeout=timeout, follow_redirects=True
+        )
 
     def __enter__(self):
         return self
@@ -552,37 +616,38 @@ class AuthenticatedClient:
     def __exit__(self, *args):
         self._client.close()
 
-    def _add_auth_header(self, headers: dict | None) -> dict:
-        """add auth header to request headers"""
-        if headers is None:
-            headers = {}
-        headers = dict(headers)  # Make a copy
-        headers["Authorization"] = f"Bearer {self._token}"
-        return headers
+    def _add_auth_cookies(self, cookies: dict | None) -> dict:
+        """add auth cookies to request cookies"""
+        if cookies is None:
+            cookies = {}
+        cookies = dict(cookies)  # Make a copy
+        cookies["access_token"] = self._access_token
+        cookies["refresh_token"] = self._refresh_token
+        return cookies
 
     def get(self, url: str, **kwargs):
-        kwargs.setdefault("headers", {})
-        kwargs["headers"] = self._add_auth_header(kwargs["headers"])
+        kwargs.setdefault("cookies", {})
+        kwargs["cookies"] = self._add_auth_cookies(kwargs["cookies"])
         return self._client.get(url, **kwargs)
 
     def post(self, url: str, **kwargs):
-        kwargs.setdefault("headers", {})
-        kwargs["headers"] = self._add_auth_header(kwargs["headers"])
+        kwargs.setdefault("cookies", {})
+        kwargs["cookies"] = self._add_auth_cookies(kwargs["cookies"])
         return self._client.post(url, **kwargs)
 
     def patch(self, url: str, **kwargs):
-        kwargs.setdefault("headers", {})
-        kwargs["headers"] = self._add_auth_header(kwargs["headers"])
+        kwargs.setdefault("cookies", {})
+        kwargs["cookies"] = self._add_auth_cookies(kwargs["cookies"])
         return self._client.patch(url, **kwargs)
 
     def put(self, url: str, **kwargs):
-        kwargs.setdefault("headers", {})
-        kwargs["headers"] = self._add_auth_header(kwargs["headers"])
+        kwargs.setdefault("cookies", {})
+        kwargs["cookies"] = self._add_auth_cookies(kwargs["cookies"])
         return self._client.put(url, **kwargs)
 
     def delete(self, url: str, **kwargs):
-        kwargs.setdefault("headers", {})
-        kwargs["headers"] = self._add_auth_header(kwargs["headers"])
+        kwargs.setdefault("cookies", {})
+        kwargs["cookies"] = self._add_auth_cookies(kwargs["cookies"])
         return self._client.delete(url, **kwargs)
 
     def close(self):
@@ -598,18 +663,25 @@ class AuthenticatedClient:
 def authenticated_user(test_database: str) -> Generator[dict, None, None]:
     """
     Create an authenticated test user directly in the database.
-    Returns user data and access token.
+    Returns user data, access token, and refresh token.
 
     Yields:
-        Dictionary with user data and 'token' key containing JWT token
+        Dictionary with user data, 'access_token', and 'refresh_token' keys
     """
     user_data = _create_test_user_in_db(test_database)
     user_id = uuid.UUID(user_data["id"])
-    token = _create_test_token(user_id)
+    access_token, refresh_token = _create_test_token(user_id)
 
-    user_with_token = {**user_data, "token": token}
+    _create_test_refresh_token_record(test_database, user_id, refresh_token)
 
-    yield user_with_token
+    user_with_tokens = {
+        **user_data,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token": access_token,  # Keep for backward compatibility during migration
+    }
+
+    yield user_with_tokens
 
     # Cleanup
     try:
@@ -625,12 +697,15 @@ def client(
     """
     function-scoped fixture that provides authenticated http client for testing.
     Uses the dedicated test API server started by the test_database fixture.
-    Automatically includes Authorization header with JWT token from authenticated_user fixture.
+    Automatically includes auth cookies (access_token and refresh_token) from authenticated_user fixture.
     """
     timeout = httpx.Timeout(10.0, connect=5.0)
-    token = authenticated_user["token"]
+    access_token = authenticated_user["access_token"]
+    refresh_token = authenticated_user["refresh_token"]
 
-    with AuthenticatedClient(TEST_API_BASE_URL, token, timeout) as http_client:
+    with AuthenticatedClient(
+        TEST_API_BASE_URL, access_token, refresh_token, timeout
+    ) as http_client:
         try:
             response = http_client.get("/health", timeout=5.0)
             if response.status_code != 200:

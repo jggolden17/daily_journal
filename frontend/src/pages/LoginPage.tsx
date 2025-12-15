@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../hooks/useAuth';
+import { MOCK_GOOGLE_ID_TOKEN } from '../api/auth';
 
 declare global {
   interface Window {
@@ -14,7 +15,7 @@ const isLocalEnvironment = import.meta.env.VITE_ENVIRONMENT === 'local';
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, loading: authLoading, user } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   
@@ -84,7 +85,40 @@ export function LoginPage() {
         )}
         {isLocalEnvironment && (
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">Auto-logging in with mock user...</p>
+            {authLoading ? (
+              <div>
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="mt-2 text-sm text-gray-600">Auto-logging in with mock user...</p>
+              </div>
+            ) : user ? (
+              <p className="text-sm text-green-600">Logged in as {user.email}</p>
+            ) : (
+              <div>
+                <p className="text-sm text-red-600 mb-2">Auto-login failed.</p>
+                {error && (
+                  <p className="text-xs text-red-500 mb-4">{error}</p>
+                )}
+                <button
+                  onClick={async () => {
+                    try {
+                      setLoading(true);
+                      setError(null);
+                      await login(MOCK_GOOGLE_ID_TOKEN);
+                    } catch (err) {
+                      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+                      setError(errorMessage);
+                      console.error('Retry login error:', err);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {loading ? 'Logging in...' : 'Retry Auto-Login'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
