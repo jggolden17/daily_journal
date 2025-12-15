@@ -1,4 +1,4 @@
-import { tokenStorage } from './auth';
+import { authApi } from './auth';
 
 let API_BASE_URL = '/api';
 const envUrl = import.meta.env.VITE_API_BACKEND_URL;
@@ -14,36 +14,73 @@ export interface ApiError {
   status?: number;
 }
 
+// Track if we're currently refreshing to avoid multiple simultaneous refresh attempts
+let isRefreshing = false;
+let refreshPromise: Promise<void> | null = null;
+
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  retryOn401 = true
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const token = tokenStorage.get();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
-    ...(token && { 'Authorization': `Bearer ${token}` }),
     ...options.headers,
   };
   
   const config: RequestInit = {
     ...options,
     headers,
+    credentials: 'include',
   };
 
   try {
-    const response = await fetch(url, config);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    const response = await fetch(url, {
+      ...config,
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
-      // Handle 401 Unauthorized - clear token and redirect to login
-      if (response.status === 401) {
-        tokenStorage.remove();
-        // Don't redirect here - let the component handle it
+      // Handle 401 Unauthorized - try to refresh token
+      // Skip refresh for auth endpoints to avoid infinite loops
+      const isAuthEndpoint = endpoint.includes('/auth/me') || endpoint.includes('/auth/refresh');
+      if (response.status === 401 && retryOn401 && !isAuthEndpoint) {
+        // Try to refresh the token
+        try {
+          await attemptTokenRefresh();
+          // Retry the original request once after refresh
+          return request<T>(endpoint, options, false);
+        } catch (refreshError) {
+          // Refresh failed, user needs to log in again
+          // Don't redirect here - let the component handle it
+        }
+      }
+      
+      // Try to extract error message from response body
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          if (errorData.detail) {
+            errorMessage = errorData.detail;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+        }
+      } catch (e) {
+        // If we can't parse the error, use the default message
       }
       
       const error: ApiError = {
-        message: `HTTP error! status: ${response.status}`,
+        message: errorMessage,
         status: response.status,
       };
       throw error;
@@ -68,6 +105,27 @@ async function request<T>(
     }
     throw error;
   }
+}
+
+async function attemptTokenRefresh(): Promise<void> {
+  // If already refreshing, wait for the existing refresh to complete
+  if (isRefreshing && refreshPromise) {
+    await refreshPromise;
+    return;
+  }
+
+  // Start a new refresh
+  isRefreshing = true;
+  refreshPromise = (async () => {
+    try {
+      await authApi.refreshToken();
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+
+  await refreshPromise;
 }
 
 export const apiClient = {

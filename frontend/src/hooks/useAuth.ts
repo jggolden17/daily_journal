@@ -30,6 +30,9 @@ export function useAuth() {
         } else {
           setUser(null);
         }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        setUser(null);
       } finally {
         setLoading(false);
       }

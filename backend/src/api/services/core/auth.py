@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -80,3 +82,17 @@ def verify_access_token(token: str) -> TokenData:
         raise ValueError(f"Invalid token: {str(e)}")
     except ValidationError as e:
         raise ValueError(f"Invalid token payload structure: {str(e)}")
+
+
+def create_refresh_token() -> str:
+    token = secrets.token_urlsafe(32)  # 32 bytes = 256 bits
+    return token
+
+
+def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def verify_refresh_token(token: str, token_hash: str) -> bool:
+    computed_hash = hash_refresh_token(token)
+    return secrets.compare_digest(computed_hash, token_hash)

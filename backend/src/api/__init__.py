@@ -22,8 +22,15 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "")
 JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(
-    os.environ.get("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+    os.environ.get("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "15")
 )
+JWT_REFRESH_TOKEN_EXPIRE_DAYS = int(
+    os.environ.get("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7")
+)
+
+# cookie config
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() == "true"
+COOKIE_SAME_SITE = os.environ.get("COOKIE_SAME_SITE", "lax")
 
 # encryption config
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")

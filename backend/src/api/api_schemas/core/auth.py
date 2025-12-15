@@ -10,9 +10,10 @@ class GoogleLoginRequest(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    """Response schema for authentication"""
+    """Response schema for authentication.
+    (tokens set as HttpOnly cookies, not returned in response body)
+    """
 
-    access_token: str
     user: UserSchema
 
 
