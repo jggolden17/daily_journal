@@ -49,9 +49,9 @@ async function request<T>(
     
     if (!response.ok) {
       // Handle 401 Unauthorized - try to refresh token
-      // Skip refresh for auth endpoints to avoid infinite loops
-      const isAuthEndpoint = endpoint.includes('/auth/me') || endpoint.includes('/auth/refresh');
-      if (response.status === 401 && retryOn401 && !isAuthEndpoint) {
+      // Only skip refresh for /auth/refresh itself to avoid infinite loops
+      const isRefreshEndpoint = endpoint.includes('/auth/refresh');
+      if (response.status === 401 && retryOn401 && !isRefreshEndpoint) {
         // Try to refresh the token
         try {
           await attemptTokenRefresh();
