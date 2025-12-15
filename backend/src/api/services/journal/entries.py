@@ -1,6 +1,6 @@
 import datetime as dt
 import uuid
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Protocol, Sequence
 from api.db.data_managers.journal.entries import EntriesDataManager
 from api.db.models.journal.entries import EntriesModel
 from api.api_schemas.journal.entries import (
@@ -20,6 +20,18 @@ if TYPE_CHECKING:
     # avoids a circular import only used for type checking threads..
     from api.db.models.journal.threads import ThreadsModel
     from api.api_schemas.generic import PageParams, SortParams
+
+
+class DecryptedEntryModel(Protocol):
+    """EntriesModel with decrypted raw_markdown attribute"""
+
+    id: uuid.UUID
+    thread_id: uuid.UUID
+    encrypted_markdown: str | None
+    raw_markdown: str | None
+    written_at: dt.datetime
+    created_at: dt.datetime
+    updated_at: dt.datetime
 
 
 def populate_create_model(
@@ -51,6 +63,7 @@ def populate_create_model(
         {
             "created_at": current_time,
             "updated_at": current_time,
+            "written_at": current_time,
         }
     )
 
@@ -78,20 +91,22 @@ class EntriesService(
         )
         self._encryption_service = get_encryption_service()
 
-    def _decrypt_entry(self, entry: EntriesModel) -> EntriesModel:
+    def _decrypt_entry(self, entry: EntriesModel) -> DecryptedEntryModel:
         """Decrypt encrypted_markdown field in an entry model and set as raw_markdown."""
         if entry.encrypted_markdown is not None:
             encrypted_value = entry.encrypted_markdown
             decrypted = self._encryption_service.decrypt(encrypted_value)
             # seen issues w type checker & SQLAlchemy mapped columns, so use setattr here
             setattr(entry, "raw_markdown", decrypted)
-        return entry
+        return entry  # type: ignore[return-value]
 
-    def _decrypt_entries(self, entries: list[EntriesModel]) -> list[EntriesModel]:
+    def _decrypt_entries(
+        self, entries: list[EntriesModel]
+    ) -> list[DecryptedEntryModel]:
         """Decrypt encrypted_markdown field in a list of entry models."""
         for entry in entries:
             self._decrypt_entry(entry)
-        return entries
+        return entries  # type: ignore[return-value]
 
     async def _prevent_sqlalch_tracking_entries_further(
         self, entries: list[EntriesModel]
@@ -111,7 +126,7 @@ class EntriesService(
     async def create_with_encryption(
         self,
         schemas: list[EntryCreateSchema],
-    ) -> list[EntriesModel]:
+    ) -> list[DecryptedEntryModel]:
         """Create entries with encrypted markdown and return decrypted."""
         entries = await super().create(schemas=schemas)
         await self._prevent_sqlalch_tracking_entries_further(entries)
@@ -120,11 +135,11 @@ class EntriesService(
     async def patch_with_encryption(
         self,
         schemas: list[EntryPatchSchema],
-    ) -> list[EntriesModel]:
+    ) -> list[DecryptedEntryModel]:
         """Patch entries with encrypted markdown and return decrypted."""
         # encrypt md before patching
         encrypted_schemas: list[EntryPatchSchema] = []
-        for idx, schema in enumerate(schemas):
+        for _, schema in enumerate(schemas):
             schema_dict = schema.model_dump(exclude_unset=True)
             raw_markdown = schema_dict.pop("raw_markdown", None)
             if raw_markdown is not None:
@@ -148,7 +163,7 @@ class EntriesService(
     async def get_one_or_none_by_id_with_decryption(
         self,
         id: uuid.UUID,
-    ) -> EntriesModel | None:
+    ) -> DecryptedEntryModel | None:
         """Get entry by ID and decrypt encrypted_markdown."""
         entry = await super().get_one_or_none_by_id(id)
         if entry:
@@ -160,7 +175,7 @@ class EntriesService(
         ids: Sequence[uuid.UUID] | None,
         page_params: "PageParams",
         sort_params: "SortParams",
-    ) -> tuple[list[EntriesModel], int]:
+    ) -> tuple[list[DecryptedEntryModel], int]:
         """Get paginated entries and decrypt encrypted_markdown."""
         entries, total = await super().get_all_paginated(
             ids=ids,
@@ -171,7 +186,7 @@ class EntriesService(
 
     async def get_entries_by_date(
         self, user_id: uuid.UUID, date: dt.date
-    ) -> list[tuple[EntriesModel, "ThreadsModel"]]:
+    ) -> list[tuple[DecryptedEntryModel, "ThreadsModel"]]:
         """get all entries for a specific date with their threads."""
         data_manager_inst = self.data_manager(self.session, self.model)
         entries_with_threads = await data_manager_inst.get_entries_by_date(
@@ -202,7 +217,7 @@ class EntriesService(
 
     async def create_entry_with_thread(
         self, user_id: uuid.UUID, date: dt.date, raw_markdown: str | None = None
-    ) -> EntriesModel:
+    ) -> DecryptedEntryModel:
         """
         create an entry and upsert the thread for the given date.
         """

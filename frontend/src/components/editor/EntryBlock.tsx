@@ -10,7 +10,7 @@ interface EntryBlockProps {
   entry: JournalEntry | null;
   value: string;
   onChange: (content: string) => void;
-  onSave: (content: string, isManualSave?: boolean) => void;
+  onSave: (content: string, isManualSave?: boolean, writtenAt?: string) => void;
   placeholder?: string;
   showSeparator?: boolean;
   showSeparatorAbove?: boolean;
@@ -39,6 +39,16 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
   autoSaveDelay = 2000,
 }, ref) => {
   const [localValue, setLocalValue] = useState(value);
+  const [isEditingTimestamp, setIsEditingTimestamp] = useState(false);
+  const [timeValue, setTimeValue] = useState(() => {
+    const timestamp = entry?.writtenAt || timestampOverride;
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  });
+  const originalDateRef = useRef<Date | null>(null);
   const saveTimeoutRef = useRef<number | null>(null);
   const lastPropValueRef = useRef(value);
   const editorRef = useRef<TipTapEditorHandle>(null);
@@ -58,6 +68,20 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
     }
   }, [value]);
 
+  // Sync timestamp when entry changes (but not when editing timestamp)
+  useEffect(() => {
+    if (!isEditingTimestamp) {
+      const timestamp = entry?.writtenAt || timestampOverride;
+      if (timestamp) {
+        const date = new Date(timestamp);
+        originalDateRef.current = date;
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        setTimeValue(`${hours}:${minutes}`);
+      }
+    }
+  }, [entry?.writtenAt, timestampOverride, isEditingTimestamp]);
+
   const handleChange = useCallback(
     (content: string) => {
       setLocalValue(content);
@@ -69,11 +93,21 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
       }
       if (content.trim()) {
         saveTimeoutRef.current = window.setTimeout(() => {
-          onSave(content, false);
+          // Include timestamp if it was edited
+          let writtenAt: string | undefined;
+          if (isEditingTimestamp && timeValue && originalDateRef.current) {
+            const [hours, minutes] = timeValue.split(':').map(Number);
+            if (!isNaN(hours) && !isNaN(minutes)) {
+              const newDate = new Date(originalDateRef.current);
+              newDate.setHours(hours, minutes, 0, 0);
+              writtenAt = newDate.toISOString();
+            }
+          }
+          onSave(content, false, writtenAt);
         }, autoSaveDelay);
       }
     },
-    [autoSaveDelay, onChange, onSave]
+    [autoSaveDelay, onChange, onSave, isEditingTimestamp, timeValue]
   );
 
   const handleSaveNow = useCallback(
@@ -82,10 +116,21 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
         clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = null;
       }
+      // Include timestamp if it was edited - combine original date with new time
+      let writtenAt: string | undefined;
+      if (isEditingTimestamp && timeValue && originalDateRef.current) {
+        const [hours, minutes] = timeValue.split(':').map(Number);
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          const newDate = new Date(originalDateRef.current);
+          newDate.setHours(hours, minutes, 0, 0);
+          writtenAt = newDate.toISOString();
+        }
+      }
       // This is a manual save (cmd-enter)
-      onSave(content, true);
+      onSave(content, true, writtenAt);
+      setIsEditingTimestamp(false);
     },
-    [onSave]
+    [onSave, isEditingTimestamp, timeValue]
   );
 
   // Cleanup on unmount
@@ -103,8 +148,75 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
         <hr className="border-0 border-t-2 border-gray-200 mt-3 mb-3" aria-hidden="true" />
       )}
       {(entry || timestampOverride) && (
-        <div className="text-xs font-semibold text-gray-400 mb-1">
-          {entry ? formatTime(entry.createdAt) : timestampOverride ? formatTime(timestampOverride) : ''}
+        <div className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-2">
+          {isEditingTimestamp ? (
+            <>
+              <input
+                type="time"
+                value={timeValue}
+                onChange={(e) => setTimeValue(e.target.value)}
+                className="px-2 py-1 border border-gray-300 rounded text-xs"
+                autoFocus
+                onBlur={() => {
+                  // Save when losing focus if there's content
+                  if (localValue.trim() && entry && timeValue && originalDateRef.current) {
+                    const [hours, minutes] = timeValue.split(':').map(Number);
+                    if (!isNaN(hours) && !isNaN(minutes)) {
+                      handleSaveNow(localValue);
+                    } else {
+                      setIsEditingTimestamp(false);
+                    }
+                  } else {
+                    setIsEditingTimestamp(false);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (localValue.trim() && entry) {
+                      handleSaveNow(localValue);
+                    } else {
+                      setIsEditingTimestamp(false);
+                    }
+                  } else if (e.key === 'Escape') {
+                    setIsEditingTimestamp(false);
+                  }
+                }}
+              />
+              <span className="text-xs text-gray-500">Press Enter to save</span>
+            </>
+          ) : (
+            <>
+              <span 
+                className="cursor-pointer hover:text-gray-600" 
+                onClick={() => {
+                  if (entry || timestampOverride) {
+                    const timestamp = entry?.writtenAt || timestampOverride;
+                    if (timestamp) {
+                      originalDateRef.current = new Date(timestamp);
+                    }
+                    setIsEditingTimestamp(true);
+                  }
+                }}
+              >
+                {entry ? formatTime(entry.writtenAt) : timestampOverride ? formatTime(timestampOverride) : ''}
+              </span>
+              {entry && (
+                <span 
+                  className="text-gray-300 text-[10px] cursor-pointer hover:text-gray-500" 
+                  onClick={() => {
+                    const timestamp = entry?.writtenAt || timestampOverride;
+                    if (timestamp) {
+                      originalDateRef.current = new Date(timestamp);
+                    }
+                    setIsEditingTimestamp(true);
+                  }}
+                >
+                  (edit)
+                </span>
+              )}
+            </>
+          )}
         </div>
       )}
       <TipTapEditor

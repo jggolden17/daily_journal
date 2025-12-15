@@ -21,7 +21,7 @@ from api.db.models.journal.threads import ThreadsModel
 from api.middleware.auth import CurrentUser
 from api.routes.route_prefix import ENTRIES_URL
 from api.routes.route_types import OptionalUUIDList, RequiredUUIDList
-from api.services.journal.entries import EntriesService
+from api.services.journal.entries import DecryptedEntryModel, EntriesService
 from api.utils.utils import (
     create_paged_response,
     create_response,
@@ -138,13 +138,16 @@ async def get_entries_by_date(
         entries_with_threads = await service.get_entries_by_date(user_id, date)
 
         entries_with_date = []
-        for entry, thread in entries_with_threads:
+        for entry_tuple in entries_with_threads:
+            entry: DecryptedEntryModel = entry_tuple[0]
+            thread = entry_tuple[1]
             entries_with_date.append(
                 EntryWithDateSchema(
                     id=entry.id,
                     thread_id=entry.thread_id,
                     raw_markdown=entry.raw_markdown,
                     date=thread.date,
+                    written_at=entry.written_at,
                     created_at=entry.created_at,
                     updated_at=entry.updated_at,
                 )
@@ -170,7 +173,7 @@ async def create_entry_with_thread(
     validate_user_id_authorization(entry_data.user_id, current_user)
     try:
         service = EntriesService(session)
-        entry = await service.create_entry_with_thread(
+        entry: DecryptedEntryModel = await service.create_entry_with_thread(
             user_id=entry_data.user_id,
             date=entry_data.date,
             raw_markdown=entry_data.raw_markdown,
@@ -191,6 +194,7 @@ async def create_entry_with_thread(
                 thread_id=entry.thread_id,
                 raw_markdown=entry.raw_markdown,
                 date=thread.date,
+                written_at=entry.written_at,
                 created_at=entry.created_at,
                 updated_at=entry.updated_at,
             )

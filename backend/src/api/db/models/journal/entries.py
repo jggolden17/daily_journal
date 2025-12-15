@@ -16,3 +16,8 @@ class EntriesModel(Base, TimestampMixin):
         nullable=False,
     )
     encrypted_markdown: Mapped[str] = mapped_column(String, nullable=True)
+    written_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=func.now(),
+    )

@@ -108,9 +108,9 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
   );
 
   const handleEntrySave = useCallback(
-    async (id: string, content: string, _isManualSave = false) => {
+    async (id: string, content: string, _isManualSave = false, writtenAt?: string) => {
       const trimmed = content.trim();
-      const isEdited = editedEntryIds.has(id);
+      const isEdited = editedEntryIds.has(id) || writtenAt !== undefined;
 
       if (!isEdited) {
         return;
@@ -123,7 +123,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
           return;
         }
 
-        await updateEntry(id, trimmed);
+        await updateEntry(id, trimmed, writtenAt);
 
         setEditedEntryIds((prev) => {
           const next = new Set(prev);
@@ -142,7 +142,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
   }, []);
 
   const handleDraftSave = useCallback(
-    async (content: string, _isManualSave = false) => {
+    async (content: string, _isManualSave = false, writtenAt?: string) => {
       const trimmed = content.trim();
 
       if (!trimmed || isSavingDraftRef.current) {
@@ -157,9 +157,14 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
           if (saved) {
             setDraftEntryId(saved.id);
             setDraftContent(saved.content || trimmed);
+            // If writtenAt was provided, update it immediately after creation
+            if (writtenAt) {
+              await updateEntry(saved.id, trimmed, writtenAt);
+              await refresh();
+            }
           }
         } else {
-          await updateEntry(draftEntryId, trimmed);
+          await updateEntry(draftEntryId, trimmed, writtenAt);
           setDraftContent(trimmed);
         }
       } catch (error) {
@@ -168,7 +173,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
         isSavingDraftRef.current = false;
       }
     },
-    [createEntry, draftEntryId, updateEntry]
+    [createEntry, draftEntryId, updateEntry, refresh]
   );
 
   const draftEntry = draftEntryId ? entries.find((e) => e.id === draftEntryId) : null;
@@ -176,7 +181,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
     () =>
       entries
         .filter((entry) => entry.id !== draftEntryId)
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+        .sort((a, b) => new Date(a.writtenAt).getTime() - new Date(b.writtenAt).getTime()),
     [entries, draftEntryId]
   );
 
@@ -247,7 +252,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
           placeholder="Start writing..."
           showSeparator={false}
           showSeparatorAbove={otherEntries.length > 0}
-          timestampOverride={draftEntry ? draftEntry.createdAt : draftTimestamp}
+          timestampOverride={draftEntry ? draftEntry.writtenAt : draftTimestamp}
           autoSaveDelay={1500}
         />
       </div>

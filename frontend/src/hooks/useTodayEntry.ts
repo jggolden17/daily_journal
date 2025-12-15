@@ -85,10 +85,10 @@ export function useTodayEntry(date?: string) {
     [targetDate]
   );
 
-  const updateEntry = useCallback(async (id: string, content: string) => {
+  const updateEntry = useCallback(async (id: string, content: string, writtenAt?: string) => {
     setSaving(true);
     try {
-      const updated = await journalApi.updateEntry(id, content);
+      const updated = await journalApi.updateEntry(id, content, writtenAt);
       setEntries((prev) => prev.map((e) => (e.id === id ? updated : e)));
       return updated;
     } catch (error) {
