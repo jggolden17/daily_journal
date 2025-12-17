@@ -58,6 +58,8 @@ You will need to run db migrations before the backend will work. For detailed se
     - [x] markdown editor / preview merged into one
     - [x] more deliberate front-end design
     - [x] autosave
+    - [ ] offline mode
+    - [ ] better mobile optimisation
     - [ ] metrics page more extensive than simple charts
     - [ ] generate pdf of entries over some date range
     - [ ] search functionality (poss in conflict with desire to encrypt data in db, tradeoff. Probably I'll do something like have encryption on DB but ability to search a secure backup stored elsewhere if I ever need this)
