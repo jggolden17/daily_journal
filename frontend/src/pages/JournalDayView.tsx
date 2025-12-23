@@ -26,6 +26,21 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
   const { metrics, loading: metricsLoading, saving: metricsSaving, saveMetrics } = useMetrics(targetDate);
   
   const [isMetricsPopupOpen, setIsMetricsPopupOpen] = useState(false);
+  const typingEditorsRef = useRef<Set<string>>(new Set());
+  const [isTyping, setIsTyping] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      // Check if screen width is mobile-sized (typically < 768px) or if touch is available
+      setIsMobile(window.innerWidth < 768 || ('ontouchstart' in window || navigator.maxTouchPoints > 0));
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const [entryContents, setEntryContents] = useState<Record<string, string>>({});
   const [editedEntryIds, setEditedEntryIds] = useState<Set<string>>(new Set());
@@ -140,6 +155,15 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
   const handleDraftChange = useCallback((content: string) => {
     setDraftContent(content);
   }, []);
+  
+  const handleTypingChange = useCallback((entryId: string, isTypingNow: boolean) => {
+    if (isTypingNow) {
+      typingEditorsRef.current.add(entryId);
+    } else {
+      typingEditorsRef.current.delete(entryId);
+    }
+    setIsTyping(typingEditorsRef.current.size > 0);
+  }, []);
 
   const handleDraftSave = useCallback(
     async (content: string, _isManualSave = false, writtenAt?: string) => {
@@ -237,6 +261,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
             value={entryContents[entry.id] ?? ''}
             onChange={(val) => handleEntryChange(entry.id, val)}
             onSave={(val, isManual) => handleEntrySave(entry.id, val, isManual)}
+            onTypingChange={(isTypingNow) => handleTypingChange(entry.id, isTypingNow)}
             placeholder="Start writing..."
             showSeparator={index < otherEntries.length - 1}
             autoSaveDelay={1500}
@@ -249,6 +274,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
           value={draftContent}
           onChange={handleDraftChange}
           onSave={handleDraftSave}
+          onTypingChange={(isTypingNow) => handleTypingChange('draft', isTypingNow)}
           placeholder="Start writing..."
           showSeparator={false}
           showSeparatorAbove={otherEntries.length > 0}
@@ -257,8 +283,10 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
         />
       </div>
       
-      {/* Metrics Icon Button */}
-      <MetricsIconButton onClick={() => setIsMetricsPopupOpen(true)} />
+      {/* Metrics Icon Button - Hide on mobile when typing */}
+      {!(isMobile && isTyping) && (
+        <MetricsIconButton onClick={() => setIsMetricsPopupOpen(true)} />
+      )}
       
       {/* Metrics Popup */}
       <MetricsPopup

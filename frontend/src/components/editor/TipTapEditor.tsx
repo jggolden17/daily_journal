@@ -15,6 +15,7 @@ interface TipTapEditorProps {
   onChange: (value: string) => void;
   onSave?: (value: string) => void;
   onCursorChange?: (position: number) => void;
+  onTypingChange?: (isTyping: boolean) => void;
   placeholder?: string;
   autoSaveDelay?: number;
   fullScreen?: boolean;
@@ -46,6 +47,7 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(({
   onChange,
   onSave,
   onCursorChange,
+  onTypingChange,
   placeholder = 'Start writing...',
   autoSaveDelay = 2000,
   fullScreen = false,
@@ -56,6 +58,9 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(({
   const editorRef = useRef<ReturnType<typeof useEditor> | null>(null);
   const onSaveRef = useRef(onSave);
   const onCursorChangeRef = useRef(onCursorChange);
+  const onTypingChangeRef = useRef(onTypingChange);
+  const typingTimeoutRef = useRef<number | null>(null);
+  const isTypingRef = useRef(false);
 
   // Convert markdown to HTML for TipTap
   const markdownToHtml = (markdown: string): string => {
@@ -112,6 +117,28 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(({
         class: `prose prose-sm max-w-none focus:outline-none ${fullScreen ? 'p-8 min-h-full' : noBorder ? 'py-0 px-0 entry-block' : 'p-4 min-h-[400px]'}`,
       },
       handleKeyDown: (view, event) => {
+        // Track typing activity
+        if (onTypingChangeRef.current && !isTypingRef.current) {
+          isTypingRef.current = true;
+          onTypingChangeRef.current(true);
+        }
+        
+        // Clear typing timeout when user types
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = null;
+        }
+        
+        // Set timeout to mark typing as stopped after a delay
+        if (onTypingChangeRef.current) {
+          typingTimeoutRef.current = window.setTimeout(() => {
+            if (isTypingRef.current) {
+              isTypingRef.current = false;
+              onTypingChangeRef.current?.(false);
+            }
+          }, 1000); // 1 second delay after last keystroke
+        }
+        
         // Handle Command+Enter (Mac) or Ctrl+Enter (Windows/Linux) to save
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
           event.preventDefault();
@@ -159,6 +186,28 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(({
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
       const markdown = htmlToMarkdown(html);
+      
+      // Track typing activity when content changes
+      if (onTypingChangeRef.current && markdown !== previousValueRef.current) {
+        if (!isTypingRef.current) {
+          isTypingRef.current = true;
+          onTypingChangeRef.current(true);
+        }
+        
+        // Clear typing timeout when content changes
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = null;
+        }
+        
+        // Set timeout to mark typing as stopped after a delay
+        typingTimeoutRef.current = window.setTimeout(() => {
+          if (isTypingRef.current) {
+            isTypingRef.current = false;
+            onTypingChangeRef.current?.(false);
+          }
+        }, 1000); // 1 second delay after last change
+      }
       
       // Track cursor position in markdown
       if (onCursorChangeRef.current) {
@@ -216,7 +265,8 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(({
     editorRef.current = editor;
     onSaveRef.current = onSave;
     onCursorChangeRef.current = onCursorChange;
-  }, [editor, onSave, onCursorChange]);
+    onTypingChangeRef.current = onTypingChange;
+  }, [editor, onSave, onCursorChange, onTypingChange]);
 
   // Expose focus method via ref
   useImperativeHandle(ref, () => ({
@@ -275,11 +325,14 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(({
     }
   }, [value, editor]);
 
-  // Cleanup timeout on unmount
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
     };
   }, []);

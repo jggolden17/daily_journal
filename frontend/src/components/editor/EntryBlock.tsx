@@ -11,6 +11,7 @@ interface EntryBlockProps {
   value: string;
   onChange: (content: string) => void;
   onSave: (content: string, isManualSave?: boolean, writtenAt?: string) => void;
+  onTypingChange?: (isTyping: boolean) => void;
   placeholder?: string;
   showSeparator?: boolean;
   showSeparatorAbove?: boolean;
@@ -32,6 +33,7 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
   value,
   onChange,
   onSave,
+  onTypingChange,
   placeholder = 'Start writing...',
   showSeparator = false,
   showSeparatorAbove = false,
@@ -224,6 +226,7 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
         value={localValue}
         onChange={handleChange}
         onSave={handleSaveNow}
+        onTypingChange={onTypingChange}
         placeholder={placeholder}
         autoSaveDelay={autoSaveDelay}
         fullScreen={false}
