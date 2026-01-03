@@ -234,7 +234,7 @@ export function CalendarPopup({ isOpen, onClose, selectedDate }: CalendarPopupPr
                 let bgColor = '';
                 if (isSelected) {
                   bgColor = 'bg-blue-100 border-blue-600';
-                } else if (hasEntry && hasCompleteMetrics) {
+                } else if (hasCompleteMetrics) {
                   bgColor = 'bg-green-50';
                 } else if (hasEntry) {
                   bgColor = 'bg-amber-50';

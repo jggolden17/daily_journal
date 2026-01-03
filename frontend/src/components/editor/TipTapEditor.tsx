@@ -323,7 +323,7 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(({
         isUpdatingFromExternalRef.current = true;
         
         // Update content without emitting update event
-        editor.commands.setContent(html, false);
+        editor.commands.setContent(html, { emitUpdate: false });
         
         // Restore cursor position after DOM update
         requestAnimationFrame(() => {
