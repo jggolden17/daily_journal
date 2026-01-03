@@ -110,7 +110,7 @@ export const journalApi = {
   async updateEntry(id: string, content: string, writtenAt?: string): Promise<JournalEntry> {
     const entryResponse = await apiClient.get<
       SingleItemResponse<EntryWithDateResponse>
-    >(`/latest/entries/${id}`);
+    >(`/latest/entries/by_user_id/${id}`);
     
     if (!entryResponse.data) {
       throw new Error('Entry not found');

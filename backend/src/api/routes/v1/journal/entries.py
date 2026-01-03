@@ -161,8 +161,56 @@ async def get_entries_by_date(
         )
 
 
+@router.get("/calendar", response_model=SingleItemResponse[list[CalendarEntrySchema]])
+async def get_calendar(
+    session: DBSessionDep,
+    current_user: CurrentUser,
+    user_id: uuid.UUID = Query(..., description="User ID to filter entries"),
+    start_date: dt.date = Query(..., description="Start date of the range (inclusive)"),
+    end_date: dt.date = Query(..., description="End date of the range (inclusive)"),
+) -> SingleItemResponse[list[CalendarEntrySchema]]:
+    """
+    get calendar data for a date range, indicating which dates have entries
+    """
+    validate_user_id_authorization(user_id, current_user)
+    try:
+        if start_date > end_date:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="start_date must be less than or equal to end_date",
+            )
+
+        service = EntriesService(session)
+        dates_with_entries = await service.get_days_with_entries(
+            user_id, start_date, end_date
+        )
+
+        calendar_entries = []
+        current_date = start_date
+        while current_date <= end_date:
+            calendar_entries.append(
+                CalendarEntrySchema(
+                    date=current_date,
+                    has_entry=current_date in dates_with_entries,
+                )
+            )
+            current_date += dt.timedelta(days=1)
+
+        return create_response(calendar_entries)
+    except DataValidationError as e:
+        raise HTTPException(
+            status_code=e.code,
+            detail={"error": "Data validation error", "message": str(e)},
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "Internal server error", "message": str(e)},
+        )
+
+
 @router.get(
-    "/{entry_id}", response_model=SingleItemResponse[EntryWithDateSchema]
+    "/by_user_id/{entry_id}", response_model=SingleItemResponse[EntryWithDateSchema]
 )
 async def get_entry_by_id(
     entry_id: uuid.UUID,
@@ -280,54 +328,6 @@ async def delete_entry(
     try:
         service = EntriesService(session)
         await service.delete_entry_with_thread_cleanup(entry_id)
-    except DataValidationError as e:
-        raise HTTPException(
-            status_code=e.code,
-            detail={"error": "Data validation error", "message": str(e)},
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": "Internal server error", "message": str(e)},
-        )
-
-
-@router.get("/calendar", response_model=SingleItemResponse[list[CalendarEntrySchema]])
-async def get_calendar(
-    session: DBSessionDep,
-    current_user: CurrentUser,
-    user_id: uuid.UUID = Query(..., description="User ID to filter entries"),
-    start_date: dt.date = Query(..., description="Start date of the range (inclusive)"),
-    end_date: dt.date = Query(..., description="End date of the range (inclusive)"),
-) -> SingleItemResponse[list[CalendarEntrySchema]]:
-    """
-    get calendar data for a date range, indicating which dates have entries
-    """
-    validate_user_id_authorization(user_id, current_user)
-    try:
-        if start_date > end_date:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="start_date must be less than or equal to end_date",
-            )
-
-        service = EntriesService(session)
-        dates_with_entries = await service.get_days_with_entries(
-            user_id, start_date, end_date
-        )
-
-        calendar_entries = []
-        current_date = start_date
-        while current_date <= end_date:
-            calendar_entries.append(
-                CalendarEntrySchema(
-                    date=current_date,
-                    has_entry=current_date in dates_with_entries,
-                )
-            )
-            current_date += dt.timedelta(days=1)
-
-        return create_response(calendar_entries)
     except DataValidationError as e:
         raise HTTPException(
             status_code=e.code,
