@@ -11,6 +11,7 @@ class MetricSchema(BaseModel):
     thread_id: uuid.UUID
     asleep_by: dt.datetime | None
     awoke_at: dt.datetime | None
+    out_of_bed_at: dt.datetime | None
     sleep_quality: int | None
     physical_activity: int | None
     overall_mood: int | None
@@ -31,6 +32,7 @@ class MetricCreateSchema(BaseModel):
     thread_id: uuid.UUID
     asleep_by: Optional[dt.datetime] = None
     awoke_at: Optional[dt.datetime] = None
+    out_of_bed_at: Optional[dt.datetime] = None
     sleep_quality: Optional[int] = Field(None, ge=1, le=7)
     physical_activity: Optional[int] = Field(None, ge=1, le=7)
     overall_mood: Optional[int] = Field(None, ge=1, le=7)
@@ -45,6 +47,7 @@ class MetricUpdateSchema(BaseModel):
     thread_id: uuid.UUID
     asleep_by: Optional[dt.datetime] = None
     awoke_at: Optional[dt.datetime] = None
+    out_of_bed_at: Optional[dt.datetime] = None
     sleep_quality: Optional[int] = Field(None, ge=1, le=7)
     physical_activity: Optional[int] = Field(None, ge=1, le=7)
     overall_mood: Optional[int] = Field(None, ge=1, le=7)
@@ -60,6 +63,7 @@ class MetricPatchSchema(BaseModel):
     thread_id: Optional[uuid.UUID] = None
     asleep_by: Optional[dt.datetime] = None
     awoke_at: Optional[dt.datetime] = None
+    out_of_bed_at: Optional[dt.datetime] = None
     sleep_quality: Optional[int] = Field(None, ge=1, le=7)
     physical_activity: Optional[int] = Field(None, ge=1, le=7)
     overall_mood: Optional[int] = Field(None, ge=1, le=7)
@@ -74,6 +78,7 @@ class MetricUpsertSchema(BaseModel):
     thread_id: uuid.UUID
     asleep_by: Optional[dt.datetime] = None
     awoke_at: Optional[dt.datetime] = None
+    out_of_bed_at: Optional[dt.datetime] = None
     sleep_quality: Optional[int] = Field(None, ge=1, le=7)
     physical_activity: Optional[int] = Field(None, ge=1, le=7)
     overall_mood: Optional[int] = Field(None, ge=1, le=7)

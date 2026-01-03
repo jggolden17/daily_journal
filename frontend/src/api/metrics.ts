@@ -20,6 +20,7 @@ interface MetricResponse {
   thread_id: string;
   asleep_by: string | null;
   awoke_at: string | null;
+  out_of_bed_at: string | null;
   sleep_quality: number | null;
   physical_activity: number | null;
   overall_mood: number | null;
@@ -37,6 +38,7 @@ function metricToDailyMetrics(metric: MetricResponse, date: string): DailyMetric
     thread_id: metric.thread_id,
     asleep_by: metric.asleep_by,
     awoke_at: metric.awoke_at,
+    out_of_bed_at: metric.out_of_bed_at,
     sleep_quality: metric.sleep_quality,
     physical_activity: metric.physical_activity,
     overall_mood: metric.overall_mood,
@@ -54,6 +56,7 @@ function dailyMetricsToMetricCreate(
     thread_id,
     asleep_by: metrics.asleep_by || null,
     awoke_at: metrics.awoke_at || null,
+    out_of_bed_at: metrics.out_of_bed_at || null,
     sleep_quality: metrics.sleep_quality ?? null,
     physical_activity: metrics.physical_activity ?? null,
     overall_mood: metrics.overall_mood ?? null,

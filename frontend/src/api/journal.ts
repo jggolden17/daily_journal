@@ -108,7 +108,6 @@ export const journalApi = {
   },
 
   async updateEntry(id: string, content: string, writtenAt?: string): Promise<JournalEntry> {
-    // Get the entry with its thread date in one API call
     const entryResponse = await apiClient.get<
       SingleItemResponse<EntryWithDateResponse>
     >(`/latest/entries/${id}`);

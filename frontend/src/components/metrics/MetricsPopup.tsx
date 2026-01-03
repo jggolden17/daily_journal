@@ -57,6 +57,8 @@ export function MetricsPopup({ isOpen, onClose, date, metrics, loading, saving, 
   const [asleepByTime, setAsleepByTime] = useState<string>('');
   const [awokeAtDate, setAwokeAtDate] = useState<string>('');
   const [awokeAtTime, setAwokeAtTime] = useState<string>('');
+  const [outOfBedAtDate, setOutOfBedAtDate] = useState<string>('');
+  const [outOfBedAtTime, setOutOfBedAtTime] = useState<string>('');
   const [sleepQuality, setSleepQuality] = useState<number | null>(null);
   const [paidProductivity, setPaidProductivity] = useState<number | null>(null);
   const [personalProductivity, setPersonalProductivity] = useState<number | null>(null);
@@ -90,6 +92,20 @@ export function MetricsPopup({ isOpen, onClose, date, metrics, loading, saving, 
       setAwokeAtDate(pageDate);
       setAwokeAtTime('');
     }
+    
+    // Initialize out_of_bed_at: default to awoke at if it exists, otherwise use page date
+    if (metrics?.out_of_bed_at) {
+      const outOfBedAt = new Date(metrics.out_of_bed_at);
+      setOutOfBedAtDate(formatDateString(outOfBedAt));
+      setOutOfBedAtTime(`${String(outOfBedAt.getHours()).padStart(2, '0')}:${String(outOfBedAt.getMinutes()).padStart(2, '0')}`);
+    } else if (metrics?.awoke_at) { 
+      const awokeAt = new Date(metrics.awoke_at);
+      setOutOfBedAtDate(formatDateString(awokeAt));      
+      setOutOfBedAtTime(`${String(awokeAt.getHours()).padStart(2, '0')}:${String(awokeAt.getMinutes()).padStart(2, '0')}`)
+    }else {
+      setOutOfBedAtDate(pageDate);
+      setOutOfBedAtTime('');
+    }
 
     setSleepQuality(metrics?.sleep_quality ?? null);
     setPaidProductivity(metrics?.paid_productivity ?? null);
@@ -112,9 +128,21 @@ export function MetricsPopup({ isOpen, onClose, date, metrics, loading, saving, 
     }
   }, [asleepByTime, asleepByDate, date]);
 
+  // Auto-update out_of_bed_at when awoke_at changes
+  useEffect(() => {
+    if (awokeAtDate && awokeAtTime) {
+      const isOutOfBedEmpty = !outOfBedAtDate || !outOfBedAtTime;
+      if (isOutOfBedEmpty) {
+        setOutOfBedAtDate(awokeAtDate);
+        setOutOfBedAtTime(awokeAtTime);
+      }
+    }
+  }, [awokeAtDate, awokeAtTime]);
+
   // Calculate sleep duration
   const asleepByIso = dateTimeLocalToIso(asleepByDate && asleepByTime ? `${asleepByDate}T${asleepByTime}` : '');
   const awokeAtIso = dateTimeLocalToIso(awokeAtDate && awokeAtTime ? `${awokeAtDate}T${awokeAtTime}` : '');
+  const outOfBedAtIso = dateTimeLocalToIso(outOfBedAtDate && outOfBedAtTime ? `${outOfBedAtDate}T${outOfBedAtTime}` : '');
   const sleepDuration = calculateSleepDuration(asleepByIso, awokeAtIso);
 
   // Handle escape key
@@ -157,6 +185,7 @@ export function MetricsPopup({ isOpen, onClose, date, metrics, loading, saving, 
       thread_id: metrics?.thread_id,
       asleep_by: asleepByIso,
       awoke_at: awokeAtIso,
+      out_of_bed_at: outOfBedAtIso,
       sleep_quality: sleepQuality,
       paid_productivity: paidProductivity,
       personal_productivity: personalProductivity,
@@ -253,6 +282,27 @@ export function MetricsPopup({ isOpen, onClose, date, metrics, loading, saving, 
                     />
                   </div>
                 </div>
+
+                {/* Out of bed by */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Out of bed by
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={outOfBedAtDate}
+                      onChange={(e) => setOutOfBedAtDate(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                    <input
+                      type="time"
+                      value={outOfBedAtTime}
+                      onChange={(e) => setOutOfBedAtTime(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                </div>                
 
                 {/* Sleep Duration */}
                 <div className="text-center py-2">

@@ -4,6 +4,7 @@ export interface Metric {
   thread_id: string;
   asleep_by: string | null; // ISO datetime string
   awoke_at: string | null; // ISO datetime string
+  out_of_bed_at: string | null; // ISO datetime string
   sleep_quality: number | null;
   physical_activity: number | null; // minutes or intensity score
   overall_mood: number | null;
@@ -20,6 +21,7 @@ export interface DailyMetrics {
   thread_id?: string;
   asleep_by?: string | null; // ISO datetime string
   awoke_at?: string | null; // ISO datetime string
+  out_of_bed_at?: string | null; // ISO datetime string
   sleep_quality?: number | null; // 1-7 scale
   physical_activity?: number | null; // 1-7 scale
   overall_mood?: number | null; // 1-7 scale

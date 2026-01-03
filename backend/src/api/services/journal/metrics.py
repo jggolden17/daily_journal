@@ -22,6 +22,12 @@ def populate_create_model(
         }
     )
 
+    # if awoke at set but out of bed not, default to awoke at time
+    awoke_at = schema_dict.get("awoke_at")
+    out_of_bed_at = schema_dict.get("out_of_bed_at")
+    if awoke_at and not out_of_bed_at:
+        schema_dict.update({"out_of_bed_at": awoke_at})
+
     return MetricsModel(**schema_dict)
 
 

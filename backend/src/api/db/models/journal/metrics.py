@@ -19,6 +19,9 @@ class MetricsModel(Base, TimestampMixin):
     )
     asleep_by: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     awoke_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    out_of_bed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     sleep_quality: Mapped[float] = mapped_column(Float, nullable=True)
     physical_activity: Mapped[float] = mapped_column(Float, nullable=True)
     overall_mood: Mapped[float] = mapped_column(Float, nullable=True)
