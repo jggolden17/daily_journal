@@ -1,10 +1,15 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { EntryBlock } from '../components/editor/EntryBlock';
 import { useTodayEntry } from '../hooks/useTodayEntry';
 import { DateHeader } from '../components/layout/DateHeader';
 import { MetricsIconButton } from '../components/metrics/MetricsIconButton';
 import { MetricsPopup } from '../components/metrics/MetricsPopup';
+import { MetricsCompletionPrompt } from '../components/metrics/MetricsCompletionPrompt';
 import { useMetrics } from '../hooks/useMetrics';
+import { getDateRange } from '../utils/dateFormatting';
+import { getDatesWithIncompleteMetrics } from '../utils/metricsHelpers';
+import type { DailyMetrics } from '../types/metrics';
 
 interface JournalDayViewProps {
   date: string;
@@ -22,12 +27,20 @@ function normalizeDate(date: string): string {
 
 export function JournalDayView({ date, loadingMessage = 'Loading entries...', fullScreen = true }: JournalDayViewProps) {
   const targetDate = useMemo(() => normalizeDate(date), [date]);
+  const navigate = useNavigate();
   const { entries, loading, saving, createEntry, updateEntry, deleteEntry, refresh } = useTodayEntry(targetDate);
   const { metrics, loading: metricsLoading, saving: metricsSaving, saveMetrics } = useMetrics(targetDate);
   
   const [isMetricsPopupOpen, setIsMetricsPopupOpen] = useState(false);
   const typingEditorsRef = useRef<Set<string>>(new Set());
   const [isTyping, setIsTyping] = useState(false);
+  
+  // State for metrics completion prompt
+  const [isCompletionPromptOpen, setIsCompletionPromptOpen] = useState(false);
+  const [pendingIncompleteDates, setPendingIncompleteDates] = useState<string[]>([]);
+  const [lastSavedDate, setLastSavedDate] = useState<string | null>(null);
+  const [shouldOpenMetricsPopup, setShouldOpenMetricsPopup] = useState(false);
+  const isProcessingMetricsCompletionRef = useRef(false);
   
 
   const [entryContents, setEntryContents] = useState<Record<string, string>>({});
@@ -49,7 +62,16 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
     isInitialLoadRef.current = true;
     setHasInitialized(false);
     pendingDraftEntryIdRef.current = null;
-  }, [targetDate]);
+    
+    // If we should open metrics popup (from completion flow), open it
+    if (shouldOpenMetricsPopup) {
+      setShouldOpenMetricsPopup(false);
+      // Small delay to ensure the page has loaded
+      setTimeout(() => {
+        setIsMetricsPopupOpen(true);
+      }, 100);
+    }
+  }, [targetDate, shouldOpenMetricsPopup]);
 
   // Keep local entry content in sync with loaded entries and manage the draft editor
   useEffect(() => {
@@ -279,6 +301,82 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
     return false;
   }, [loading, hasInitialized, editedEntryIds, draftEntryId, draftContent, entries]);
 
+  // Handle metrics save completion - check for incomplete metrics in last 7 days
+  const handleMetricsSaveComplete = useCallback(async (savedMetrics: DailyMetrics) => {
+    // Prevent multiple simultaneous checks
+    if (isProcessingMetricsCompletionRef.current) {
+      return;
+    }
+    
+    isProcessingMetricsCompletionRef.current = true;
+    
+    try {
+      const savedDate = savedMetrics.date;
+      setLastSavedDate(savedDate);
+      
+      // Calculate date range for last 7 days (including the saved date)
+      const { start, end } = getDateRange(savedDate, 7);
+      
+      // Get dates with incomplete metrics
+      const incompleteDates = await getDatesWithIncompleteMetrics(start, end);
+      
+      // Filter out the date we just saved
+      const otherIncompleteDates = incompleteDates.filter((d) => d !== savedDate);
+      
+      if (otherIncompleteDates.length > 0) {
+        // Store pending dates and show prompt
+        setPendingIncompleteDates(otherIncompleteDates);
+        setIsCompletionPromptOpen(true);
+      }
+    } catch (error) {
+      console.error('Failed to check for incomplete metrics:', error);
+    } finally {
+      isProcessingMetricsCompletionRef.current = false;
+    }
+  }, []);
+
+  // Handle confirmation to add metrics for missing dates
+  const handleCompletionPromptConfirm = useCallback(() => {
+    setIsCompletionPromptOpen(false);
+    
+    if (pendingIncompleteDates.length > 0) {
+      // Navigate to the most recent date with incomplete metrics
+      const nextDate = pendingIncompleteDates[0];
+      setShouldOpenMetricsPopup(true);
+      navigate(`/day/${nextDate}`);
+      // The metrics popup will be opened by the useEffect when targetDate changes
+    }
+  }, [pendingIncompleteDates, navigate]);
+
+  // Handle completion prompt close
+  const handleCompletionPromptClose = useCallback(() => {
+    setIsCompletionPromptOpen(false);
+    setPendingIncompleteDates([]);
+  }, []);
+
+  // Handle metrics save - handles both normal saves and completion flow saves
+  const handleMetricsSave = useCallback(async (updatedMetrics: DailyMetrics) => {
+    const saved = await saveMetrics(updatedMetrics);
+    
+    // If we're in the completion flow, remove the current date from pending list
+    if (pendingIncompleteDates.length > 0 && pendingIncompleteDates[0] === targetDate) {
+      const remainingDates = pendingIncompleteDates.slice(1);
+      setPendingIncompleteDates(remainingDates);
+      
+      if (remainingDates.length > 0) {
+        // More dates to process - show prompt again
+        setIsCompletionPromptOpen(true);
+        setIsMetricsPopupOpen(false);
+      } else {
+        // All done - close popup
+        setIsMetricsPopupOpen(false);
+      }
+    }
+    // For normal saves, handleMetricsSaveComplete will be called via onSaveComplete
+    
+    return saved;
+  }, [saveMetrics, pendingIncompleteDates, targetDate]);
+
   if (loading) {
     return (
       <div className={fullScreen ? 'fixed inset-0 flex items-center justify-center bg-white' : 'flex items-center justify-center'}>
@@ -340,7 +438,17 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
         metrics={metrics}
         loading={metricsLoading}
         saving={metricsSaving}
-        onSave={saveMetrics}
+        onSave={handleMetricsSave}
+        onSaveComplete={pendingIncompleteDates.length === 0 ? handleMetricsSaveComplete : undefined}
+      />
+      
+      {/* Metrics Completion Prompt */}
+      <MetricsCompletionPrompt
+        isOpen={isCompletionPromptOpen}
+        onClose={handleCompletionPromptClose}
+        savedDate={lastSavedDate || targetDate}
+        missingCount={pendingIncompleteDates.length}
+        onConfirm={handleCompletionPromptConfirm}
       />
     </div>
   );

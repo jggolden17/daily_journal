@@ -29,6 +29,9 @@ interface EntryResponse {
 interface CalendarEntryResponse {
   date: string; // ISO date string (YYYY-MM-DD)
   hasEntry: boolean;
+  hasMetrics?: boolean;
+  hasSleepMetrics?: boolean;
+  hasCompleteMetrics?: boolean;
 }
 
 // Helper function to get user ID
@@ -171,6 +174,31 @@ export const journalApi = {
     return response.data.map((entry) => ({
       date: entry.date,
       hasEntry: entry.hasEntry,
+      hasMetrics: entry.hasMetrics,
+      hasSleepMetrics: entry.hasSleepMetrics,
+      hasCompleteMetrics: entry.hasCompleteMetrics,
+    }));
+  },
+
+  async getCalendarRange(startDate: string, endDate: string): Promise<CalendarEntry[]> {
+    const user_id = await getUserId();
+    
+    const response = await apiClient.get<
+      SingleItemResponse<CalendarEntryResponse[]>
+    >(
+      `/latest/entries/calendar?user_id=${user_id}&start_date=${startDate}&end_date=${endDate}`
+    );
+    
+    if (!response.data) {
+      return [];
+    }
+    
+    return response.data.map((entry) => ({
+      date: entry.date,
+      hasEntry: entry.hasEntry,
+      hasMetrics: entry.hasMetrics,
+      hasSleepMetrics: entry.hasSleepMetrics,
+      hasCompleteMetrics: entry.hasCompleteMetrics,
     }));
   },
 };

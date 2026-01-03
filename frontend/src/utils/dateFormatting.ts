@@ -81,3 +81,20 @@ export function getNextDay(date: Date | string): string {
   next.setDate(next.getDate() + 1);
   return formatDateString(next);
 }
+
+/**
+ * Calculates a date range going backwards from a given date
+ * @param startDate - Date string (YYYY-MM-DD) or Date object - the end date of the range
+ * @param days - Number of days to go back (inclusive of startDate)
+ * @returns Object with start and end dates as YYYY-MM-DD strings
+ */
+export function getDateRange(startDate: Date | string, days: number): { start: string; end: string } {
+  const dateObj = typeof startDate === 'string' ? parseLocalDate(startDate) : startDate;
+  const end = formatDateString(dateObj);
+  
+  const start = new Date(dateObj);
+  start.setDate(start.getDate() - (days - 1));
+  const startStr = formatDateString(start);
+  
+  return { start: startStr, end };
+}

@@ -11,6 +11,7 @@ interface MetricsPopupProps {
   loading: boolean;
   saving: boolean;
   onSave: (metrics: DailyMetrics) => Promise<DailyMetrics>;
+  onSaveComplete?: (savedMetrics: DailyMetrics) => void;
 }
 
 type Page = 1 | 2 | 3;
@@ -48,7 +49,7 @@ function calculateSleepDuration(asleepBy: string | null, awokeAt: string | null)
   return diffHours;
 }
 
-export function MetricsPopup({ isOpen, onClose, date, metrics, loading, saving, onSave }: MetricsPopupProps) {
+export function MetricsPopup({ isOpen, onClose, date, metrics, loading, saving, onSave, onSaveComplete }: MetricsPopupProps) {
   const [currentPage, setCurrentPage] = useState<Page>(1);
   const popupRef = useRef<HTMLDivElement>(null);
 
@@ -194,8 +195,12 @@ export function MetricsPopup({ isOpen, onClose, date, metrics, loading, saving, 
     };
 
     try {
-      await onSave(updatedMetrics);
+      const saved = await onSave(updatedMetrics);
       onClose();
+      // Call onSaveComplete callback if provided
+      if (onSaveComplete) {
+        onSaveComplete(saved);
+      }
     } catch (error) {
       console.error('Failed to save metrics:', error);
     }
