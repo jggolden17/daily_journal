@@ -161,6 +161,58 @@ async def get_entries_by_date(
         )
 
 
+@router.get(
+    "/{entry_id}", response_model=SingleItemResponse[EntryWithDateSchema]
+)
+async def get_entry_by_id(
+    entry_id: uuid.UUID,
+    session: DBSessionDep,
+    current_user: CurrentUser,
+) -> SingleItemResponse[EntryWithDateSchema]:
+    """
+    get a single entry by ID with its thread date.
+    """
+    try:
+        service = EntriesService(session)
+        result = await service.get_entry_by_id_with_thread(entry_id)
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Entry not found for id {entry_id}",
+            )
+
+        entry: DecryptedEntryModel = result[0]
+        thread = result[1]
+
+        # Validate user authorization
+        validate_user_id_authorization(thread.user_id, current_user)
+
+        return create_response(
+            EntryWithDateSchema(
+                id=entry.id,
+                thread_id=entry.thread_id,
+                raw_markdown=entry.raw_markdown,
+                date=thread.date,
+                written_at=entry.written_at,
+                created_at=entry.created_at,
+                updated_at=entry.updated_at,
+            )
+        )
+    except DataValidationError as e:
+        raise HTTPException(
+            status_code=e.code,
+            detail={"error": "Data validation error", "message": str(e)},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "Internal server error", "message": str(e)},
+        )
+
+
 @router.post("/with-thread", response_model=SingleItemResponse[EntryWithDateSchema])
 async def create_entry_with_thread(
     entry_data: EntryCreateWithDateSchema,

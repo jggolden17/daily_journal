@@ -30,13 +30,20 @@ class EntriesDataManager(BaseDataManager[EntriesModel]):
         result = await self.session.execute(stmt)
         return [(row[0], row[1]) for row in result.all()]
 
-    async def get_entry_with_thread(self, entry_id: uuid.UUID) -> EntriesModel | None:
+    async def get_entry_with_thread(self, entry_id: uuid.UUID) -> tuple[EntriesModel, ThreadsModel] | None:
         """
         find an entry with its associated thread.
         """
-        stmt = select(EntriesModel).where(EntriesModel.id == entry_id)
-        result = await self.session.scalar(stmt)
-        return result
+        stmt = (
+            select(EntriesModel, ThreadsModel)
+            .join(ThreadsModel, EntriesModel.thread_id == ThreadsModel.id)
+            .where(EntriesModel.id == entry_id)
+        )
+        result = await self.session.execute(stmt)
+        row = result.first()
+        if row:
+            return (row[0], row[1])
+        return None
 
     async def count_entries_in_thread(self, thread_id: uuid.UUID) -> int:
         """

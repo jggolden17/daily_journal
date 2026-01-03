@@ -11,6 +11,7 @@ interface EntryBlockProps {
   value: string;
   onChange: (content: string) => void;
   onSave: (content: string, isManualSave?: boolean, writtenAt?: string) => void;
+  onDelete?: (id: string) => Promise<void>;
   onTypingChange?: (isTyping: boolean) => void;
   placeholder?: string;
   showSeparator?: boolean;
@@ -33,6 +34,7 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
   value,
   onChange,
   onSave,
+  onDelete,
   onTypingChange,
   placeholder = 'Start writing...',
   showSeparator = false,
@@ -71,8 +73,11 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
   }, [value]);
 
   // Sync timestamp when entry changes (but not when editing timestamp)
+  // Use a ref to track if we're actively editing to prevent reset during async updates
+  const isActivelyEditingRef = useRef(false);
+  
   useEffect(() => {
-    if (!isEditingTimestamp) {
+    if (!isEditingTimestamp && !isActivelyEditingRef.current) {
       const timestamp = entry?.writtenAt || timestampOverride;
       if (timestamp) {
         const date = new Date(timestamp);
@@ -113,7 +118,7 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
   );
 
   const handleSaveNow = useCallback(
-    (content: string) => {
+    async (content: string) => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = null;
@@ -129,11 +134,28 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
         }
       }
       // This is a manual save (cmd-enter)
-      onSave(content, true, writtenAt);
-      setIsEditingTimestamp(false);
+      // Keep editing state active during save to prevent reset from useEffect
+      try {
+        await onSave(content, true, writtenAt);
+      } finally {
+        // Reset editing state after save completes
+        isActivelyEditingRef.current = false;
+        setIsEditingTimestamp(false);
+      }
     },
     [onSave, isEditingTimestamp, timeValue]
   );
+
+  const handleDelete = useCallback(async () => {
+    if (!entry || !onDelete) return;
+    if (window.confirm('Are you sure you want to delete this entry?')) {
+      try {
+        await onDelete(entry.id);
+      } catch (error) {
+        console.error('Failed to delete entry:', error);
+      }
+    }
+  }, [entry, onDelete]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -166,9 +188,11 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
                     if (!isNaN(hours) && !isNaN(minutes)) {
                       handleSaveNow(localValue);
                     } else {
+                      isActivelyEditingRef.current = false;
                       setIsEditingTimestamp(false);
                     }
                   } else {
+                    isActivelyEditingRef.current = false;
                     setIsEditingTimestamp(false);
                   }
                 }}
@@ -178,14 +202,31 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
                     if (localValue.trim() && entry) {
                       handleSaveNow(localValue);
                     } else {
+                      isActivelyEditingRef.current = false;
                       setIsEditingTimestamp(false);
                     }
                   } else if (e.key === 'Escape') {
+                    isActivelyEditingRef.current = false;
                     setIsEditingTimestamp(false);
                   }
                 }}
               />
               <span className="text-xs text-gray-500">Press Enter to save</span>
+              {entry && onDelete && (
+                <button
+                  onMouseDown={(e) => {
+                    // Prevent blur on the input when clicking delete button
+                    e.preventDefault();
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete();
+                  }}
+                  className="px-2 py-1 text-xs text-red-600 hover:text-red-800 border border-red-600 rounded hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -197,6 +238,7 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
                     if (timestamp) {
                       originalDateRef.current = new Date(timestamp);
                     }
+                    isActivelyEditingRef.current = true;
                     setIsEditingTimestamp(true);
                   }
                 }}
@@ -211,6 +253,7 @@ export const EntryBlock = forwardRef<EntryBlockHandle, EntryBlockProps>(({
                     if (timestamp) {
                       originalDateRef.current = new Date(timestamp);
                     }
+                    isActivelyEditingRef.current = true;
                     setIsEditingTimestamp(true);
                   }}
                 >

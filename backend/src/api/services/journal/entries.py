@@ -215,6 +215,24 @@ class EntriesService(
             user_id, start_date, end_date
         )
 
+    async def get_entry_by_id_with_thread(
+        self, entry_id: uuid.UUID
+    ) -> tuple[DecryptedEntryModel, "ThreadsModel"] | None:
+        """
+        Get entry by ID with its thread and decrypt encrypted_markdown.
+        """
+        data_manager_inst = self.data_manager(self.session, self.model)
+        result = await data_manager_inst.get_entry_with_thread(entry_id)
+        
+        if not result:
+            return None
+        
+        entry, thread = result
+        # Decrypt the entry
+        await self._prevent_sqlalch_tracking_entries_further([entry])
+        decrypted_entry = self._decrypt_entry(entry)
+        return (decrypted_entry, thread)
+
     async def create_entry_with_thread(
         self, user_id: uuid.UUID, date: dt.date, raw_markdown: str | None = None
     ) -> DecryptedEntryModel:
@@ -250,9 +268,9 @@ class EntriesService(
         delete an entry and its thread if it's the last entry in the thread.
         """
         data_manager_inst = self.data_manager(self.session, self.model)
-        entry = await data_manager_inst.get_entry_with_thread(entry_id)
+        result = await data_manager_inst.get_entry_with_thread(entry_id)
 
-        if not entry:
+        if not result:
             from api.db.base_data_manager import DataValidationError
 
             raise DataValidationError(
@@ -260,6 +278,7 @@ class EntriesService(
                 code=404,
             )
 
+        entry, _ = result
         thread_id = entry.thread_id
 
         await self.delete(ids=[entry_id])

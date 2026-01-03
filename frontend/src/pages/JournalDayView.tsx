@@ -28,19 +28,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
   const [isMetricsPopupOpen, setIsMetricsPopupOpen] = useState(false);
   const typingEditorsRef = useRef<Set<string>>(new Set());
   const [isTyping, setIsTyping] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   
-  // Detect mobile device
-  useEffect(() => {
-    const checkMobile = () => {
-      // Check if screen width is mobile-sized (typically < 768px) or if touch is available
-      setIsMobile(window.innerWidth < 768 || ('ontouchstart' in window || navigator.maxTouchPoints > 0));
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const [entryContents, setEntryContents] = useState<Record<string, string>>({});
   const [editedEntryIds, setEditedEntryIds] = useState<Set<string>>(new Set());
@@ -50,6 +38,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
   const [hasInitialized, setHasInitialized] = useState(false);
   const isSavingDraftRef = useRef(false);
   const isInitialLoadRef = useRef(true);
+  const pendingDraftEntryIdRef = useRef<string | null>(null);
 
   // Reset draft when date changes
   useEffect(() => {
@@ -59,6 +48,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
     setDraftTimestamp(nextDraftTimestamp);
     isInitialLoadRef.current = true;
     setHasInitialized(false);
+    pendingDraftEntryIdRef.current = null;
   }, [targetDate]);
 
   // Keep local entry content in sync with loaded entries and manage the draft editor
@@ -177,36 +167,88 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
         isSavingDraftRef.current = true;
 
         if (!draftEntryId) {
-          const saved = await createEntry(trimmed);
+          // Store the content we're about to save so we can identify the entry when it's created
+          // This allows us to set pendingDraftEntryIdRef before the entry appears in otherEntries
+          const contentToSave = trimmed;
+          const saved = await createEntry(contentToSave);
           if (saved) {
+            // Set pending ref and draftEntryId synchronously to prevent duplicate rendering
+            // The ref must be set before React processes the entries state update
+            pendingDraftEntryIdRef.current = saved.id;
             setDraftEntryId(saved.id);
-            setDraftContent(saved.content || trimmed);
+            setDraftContent(saved.content || contentToSave);
             // If writtenAt was provided, update it immediately after creation
             if (writtenAt) {
-              await updateEntry(saved.id, trimmed, writtenAt);
-              await refresh();
+              await updateEntry(saved.id, contentToSave, writtenAt);
             }
+            // Clear pending ref after a short delay to ensure all renders have completed
+            // We keep it set until draftEntryId state is fully propagated
+            setTimeout(() => {
+              // Only clear if draftEntryId matches (to avoid clearing if state changed)
+              if (pendingDraftEntryIdRef.current === saved.id) {
+                pendingDraftEntryIdRef.current = null;
+              }
+            }, 100);
+            // No refresh needed - createEntry already updates the entries array via setEntries
           }
         } else {
           await updateEntry(draftEntryId, trimmed, writtenAt);
           setDraftContent(trimmed);
+          // No refresh needed - updateEntry already updates the entries array via setEntries
         }
       } catch (error) {
         console.error('Failed to save entry', error);
+        // Clear pending ref on error
+        pendingDraftEntryIdRef.current = null;
       } finally {
         isSavingDraftRef.current = false;
       }
     },
-    [createEntry, draftEntryId, updateEntry, refresh]
+    [createEntry, draftEntryId, updateEntry]
+  );
+
+  const handleDeleteEntry = useCallback(
+    async (id: string) => {
+      try {
+        await deleteEntry(id);
+        // If the deleted entry was the draft entry, clear draft state
+        if (draftEntryId === id) {
+          const nextDraftTimestamp = new Date().toISOString();
+          setDraftEntryId(null);
+          setDraftContent('');
+          setDraftTimestamp(nextDraftTimestamp);
+        }
+        // Refresh to ensure UI is in sync
+        await refresh();
+      } catch (error) {
+        console.error('Failed to delete entry:', error);
+        throw error;
+      }
+    },
+    [deleteEntry, draftEntryId, refresh]
   );
 
   const draftEntry = draftEntryId ? entries.find((e) => e.id === draftEntryId) : null;
   const otherEntries = useMemo(
-    () =>
-      entries
-        .filter((entry) => entry.id !== draftEntryId)
-        .sort((a, b) => new Date(a.writtenAt).getTime() - new Date(b.writtenAt).getTime()),
-    [entries, draftEntryId]
+    () => {
+      // Use pendingDraftEntryIdRef to prevent entry from appearing in otherEntries before draftEntryId is set
+      const effectiveDraftEntryId = draftEntryId || pendingDraftEntryIdRef.current;
+      // Also filter out any entry that matches the draft content if we're saving (to handle race condition)
+      const filtered = entries.filter((entry) => {
+        if (entry.id === effectiveDraftEntryId) {
+          return false;
+        }
+        // If we're currently saving a draft and this entry matches the draft content, exclude it
+        // This handles the race condition where createEntry updates entries before draftEntryId is set
+        if (!draftEntryId && isSavingDraftRef.current && draftContent.trim() && entry.content.trim() === draftContent.trim()) {
+          return false;
+        }
+        return true;
+      });
+      const sorted = filtered.sort((a, b) => new Date(a.writtenAt).getTime() - new Date(b.writtenAt).getTime());
+      return sorted;
+    },
+    [entries, draftEntryId, draftContent]
   );
 
   // Calculate if there are unsaved changes
@@ -261,6 +303,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
             value={entryContents[entry.id] ?? ''}
             onChange={(val) => handleEntryChange(entry.id, val)}
             onSave={(val, isManual) => handleEntrySave(entry.id, val, isManual)}
+            onDelete={handleDeleteEntry}
             onTypingChange={(isTypingNow) => handleTypingChange(entry.id, isTypingNow)}
             placeholder="Start writing..."
             showSeparator={index < otherEntries.length - 1}
@@ -274,6 +317,7 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
           value={draftContent}
           onChange={handleDraftChange}
           onSave={handleDraftSave}
+          onDelete={draftEntry ? handleDeleteEntry : undefined}
           onTypingChange={(isTypingNow) => handleTypingChange('draft', isTypingNow)}
           placeholder="Start writing..."
           showSeparator={false}
@@ -283,8 +327,8 @@ export function JournalDayView({ date, loadingMessage = 'Loading entries...', fu
         />
       </div>
       
-      {/* Metrics Icon Button - Hide on mobile when typing */}
-      {!(isMobile && isTyping) && (
+      {/* Metrics Icon Button - Hide when typing */}
+      {!(isTyping) && (
         <MetricsIconButton onClick={() => setIsMetricsPopupOpen(true)} />
       )}
       

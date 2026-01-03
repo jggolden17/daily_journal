@@ -108,43 +108,16 @@ export const journalApi = {
   },
 
   async updateEntry(id: string, content: string, writtenAt?: string): Promise<JournalEntry> {
-    // First, get the entry to preserve the date
-    const user_id = await getUserId();
-    const today = getTodayDate();
+    // Get the entry with its thread date in one API call
+    const entryResponse = await apiClient.get<
+      SingleItemResponse<EntryWithDateResponse>
+    >(`/latest/entries/${id}`);
     
-    // Try to find the entry to get its date
-    // We'll search today first, then try a few days around today
-    let entry: EntryWithDateResponse | null = null;
-    const datesToCheck = [
-      today,
-      ...Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() + i - 3);
-        return d.toISOString().split('T')[0];
-      }),
-    ];
-    
-    for (const date of datesToCheck) {
-      try {
-        const entriesResponse = await apiClient.get<
-          SingleItemResponse<EntryWithDateResponse[]>
-        >(`/latest/entries/date/${date}?user_id=${user_id}`);
-        
-        if (entriesResponse.data) {
-          const found = entriesResponse.data.find((e) => e.id === id);
-          if (found) {
-            entry = found;
-            break;
-          }
-        }
-      } catch {
-        // Continue searching
-      }
-    }
-    
-    if (!entry) {
+    if (!entryResponse.data) {
       throw new Error('Entry not found');
     }
+    
+    const entry = entryResponse.data;
     
     // Build patch payload
     const patchPayload: { id: string; raw_markdown?: string; written_at?: string } = {

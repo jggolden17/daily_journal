@@ -41,10 +41,20 @@ code {
   margin: 0.5em 0;
 }
 
-/* Reduce paragraph margins in entry blocks for tighter spacing */
+/* Add spacing between paragraphs separated by blank lines */
+.ProseMirror p + p {
+  margin-top: 1em;
+}
+
+/* Entry blocks use default paragraph spacing with custom line height */
 .ProseMirror.entry-block p {
-  margin: 0;
+  margin: 0.5em 0;
   line-height: 1.5;
+}
+
+/* Adjacent paragraphs in entry blocks get spacing when separated by blank lines */
+.ProseMirror.entry-block p + p {
+  margin-top: 1em;
 }
 
 .ProseMirror.entry-block p:first-child {
@@ -150,5 +160,19 @@ code {
 
 .ProseMirror em {
   font-style: italic;
+}
+
+/* Custom spin animation for sync icon - adjustable speed */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sync-icon-spin {
+  animation: spin-slow 1s linear infinite;
 }
 

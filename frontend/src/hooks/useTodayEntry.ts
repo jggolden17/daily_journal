@@ -64,6 +64,7 @@ export function useTodayEntry(date?: string) {
         return;
       }
       isSavingRef.current = true;
+      const startTime = Date.now();
       setSaving(true);
       try {
         const saved = await journalApi.createEntry(targetDate, content);
@@ -73,6 +74,14 @@ export function useTodayEntry(date?: string) {
           }
           return [...prev, saved];
         });
+        
+        // Ensure minimum duration for animation visibility (2s to match animation duration)
+        const elapsed = Date.now() - startTime;
+        const minDuration = 1000;
+        if (elapsed < minDuration) {
+          await new Promise(resolve => setTimeout(resolve, minDuration - elapsed));
+        }
+        
         return saved;
       } catch (error) {
         console.error('Failed to create entry:', error);
@@ -86,10 +95,19 @@ export function useTodayEntry(date?: string) {
   );
 
   const updateEntry = useCallback(async (id: string, content: string, writtenAt?: string) => {
+    const startTime = Date.now();
     setSaving(true);
     try {
       const updated = await journalApi.updateEntry(id, content, writtenAt);
       setEntries((prev) => prev.map((e) => (e.id === id ? updated : e)));
+      
+      // Ensure minimum duration for animation visibility
+      const elapsed = Date.now() - startTime;
+      const minDuration = 2000;
+      if (elapsed < minDuration) {
+        await new Promise(resolve => setTimeout(resolve, minDuration - elapsed));
+      }
+      
       return updated;
     } catch (error) {
       console.error('Failed to update entry:', error);

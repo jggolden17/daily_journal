@@ -15,7 +15,7 @@ export function SyncIcon({ isSaving, hasUnsavedChanges }: SyncIconProps) {
 
   return (
     <svg
-      className={`w-5 h-5 ${colorClass} ${isSaving ? 'animate-spin' : ''}`}
+      className={`w-5 h-5 ${colorClass} ${isSaving ? 'sync-icon-spin' : ''}`}
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"

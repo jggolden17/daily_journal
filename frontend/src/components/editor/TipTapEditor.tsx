@@ -61,6 +61,7 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(({
   const onTypingChangeRef = useRef(onTypingChange);
   const typingTimeoutRef = useRef<number | null>(null);
   const isTypingRef = useRef(false);
+  const isUpdatingFromExternalRef = useRef(false);
 
   // Convert markdown to HTML for TipTap
   const markdownToHtml = (markdown: string): string => {
@@ -184,6 +185,11 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(({
       },
     },
     onUpdate: ({ editor }) => {
+      // Don't process updates that come from external content changes
+      if (isUpdatingFromExternalRef.current) {
+        return;
+      }
+
       const html = editor.getHTML();
       const markdown = htmlToMarkdown(html);
       
@@ -281,45 +287,80 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(({
   // Update editor content when value prop changes externally
   useEffect(() => {
     if (editor && value !== previousValueRef.current) {
-      const html = markdownToHtml(value);
+      // Get current markdown content from editor
       const currentHtml = editor.getHTML();
+      const currentMarkdown = htmlToMarkdown(currentHtml);
       
-      // Only update if the content is actually different
-      if (html !== currentHtml) {
+      // Normalize both markdown strings for comparison (trim whitespace)
+      const normalizedValue = value.trim();
+      const normalizedCurrent = currentMarkdown.trim();
+      
+      // Check if content is actually different (semantically, not just formatting)
+      const isContentDifferent = normalizedValue !== normalizedCurrent;
+      const isUserTyping = isTypingRef.current;
+      
+      // Never update if user is actively typing - this prevents disrupting their flow
+      if (isUserTyping) {
+        // Just update the ref to prevent unnecessary checks, but don't change editor
+        previousValueRef.current = value;
+        return;
+      }
+      
+      // Only update if content is actually different
+      if (isContentDifferent) {
+        const html = markdownToHtml(value);
+        
+        // Double-check: if HTML would be the same, don't update (prevents unnecessary re-renders)
+        if (html === currentHtml) {
+          previousValueRef.current = value;
+          return;
+        }
+        
         // Capture current selection before updating content
         const { from, to } = editor.state.selection;
         
-        // Update content
-        editor.commands.setContent(html);
+        // Mark that we're updating from external source to prevent onUpdate from firing
+        isUpdatingFromExternalRef.current = true;
         
-        // Restore cursor position if content is the same length (user likely just saved)
-        // Otherwise, preserve position if it's still valid
-        setTimeout(() => {
+        // Update content without emitting update event
+        editor.commands.setContent(html, false);
+        
+        // Restore cursor position after DOM update
+        requestAnimationFrame(() => {
           if (editor && !editor.isDestroyed) {
             try {
               const docLength = editor.state.doc.content.size;
-              // If content length is similar, try to restore position
-              // Otherwise, place cursor at end
+              // Try to restore the exact position if still valid
               if (docLength > 0) {
                 const safeFrom = Math.min(from, docLength);
                 const safeTo = Math.min(to, docLength);
                 editor.commands.setTextSelection({ from: safeFrom, to: safeTo });
+                // Ensure editor maintains focus
+                editor.view.focus();
               }
             } catch (error) {
-              // If restoring fails, place cursor at end
+              // If restoring fails, try to place cursor at end
               try {
                 const docLength = editor.state.doc.content.size;
                 if (docLength > 0) {
                   editor.commands.setTextSelection(docLength);
                 }
+                editor.view.focus();
               } catch {
                 // Fallback: just focus
                 editor.view.focus();
               }
             }
           }
-        }, 0);
+          // Clear the flag after update completes
+          setTimeout(() => {
+            isUpdatingFromExternalRef.current = false;
+          }, 10);
+        });
         
+        previousValueRef.current = value;
+      } else {
+        // Content is the same (normalized), just update the ref to prevent unnecessary checks
         previousValueRef.current = value;
       }
     }
