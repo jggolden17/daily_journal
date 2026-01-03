@@ -10,5 +10,8 @@ export interface JournalEntry {
 export interface CalendarEntry {
   date: string; // ISO date string (YYYY-MM-DD)
   hasEntry: boolean;
+  hasMetrics?: boolean;
+  hasSleepMetrics?: boolean;
+  hasCompleteMetrics?: boolean;
 }
 

@@ -73,6 +73,9 @@ class CalendarEntrySchema(BaseModel):
 
     date: dt.date
     has_entry: bool = Field(serialization_alias="hasEntry")
+    has_metrics: bool = Field(serialization_alias="hasMetrics", default=False)
+    has_sleep_metrics: bool = Field(serialization_alias="hasSleepMetrics", default=False)
+    has_complete_metrics: bool = Field(serialization_alias="hasCompleteMetrics", default=False)
 
     class Config:
         # Allow both alias and field name for serialization/deserialization

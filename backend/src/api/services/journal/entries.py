@@ -215,6 +215,83 @@ class EntriesService(
             user_id, start_date, end_date
         )
 
+    async def get_calendar_data(
+        self, user_id: uuid.UUID, start_date: dt.date, end_date: dt.date
+    ) -> dict[dt.date, dict[str, bool]]:
+        """
+        Get calendar data with entry and metrics status flags for each date in range.
+        Returns a dict mapping date -> status flags.
+        """
+        from sqlalchemy import select, func
+        from api.db.models.journal.threads import ThreadsModel
+        from api.db.models.journal.metrics import MetricsModel
+
+        # Query threads with left join to metrics
+        threads_with_metrics_stmt = (
+            select(
+                ThreadsModel.id,
+                ThreadsModel.date,
+                MetricsModel.id.label("metrics_id"),
+                MetricsModel.awoke_at,
+                MetricsModel.asleep_by,
+                MetricsModel.sleep_quality,
+                MetricsModel.overall_mood,
+            )
+            .outerjoin(MetricsModel, ThreadsModel.id == MetricsModel.thread_id)
+            .where(ThreadsModel.user_id == user_id)
+            .where(ThreadsModel.date >= start_date)
+            .where(ThreadsModel.date <= end_date)
+        )
+
+        result = await self.session.execute(threads_with_metrics_stmt)
+        threads_data = result.all()
+
+        # Get entry counts for all threads
+        thread_ids = [row.id for row in threads_data]
+        entry_counts: dict[uuid.UUID, int] = {}
+        if thread_ids:
+            entry_count_stmt = (
+                select(
+                    EntriesModel.thread_id, func.count(EntriesModel.id).label("count")
+                )
+                .where(EntriesModel.thread_id.in_(thread_ids))
+                .group_by(EntriesModel.thread_id)
+            )
+            entry_count_result = await self.session.execute(entry_count_stmt)
+            entry_counts = {
+                row.thread_id: int(row.count)  # type: ignore[call-overload]
+                for row in entry_count_result.all()
+            }
+
+        calendar_data: dict[dt.date, dict[str, bool]] = {}
+
+        for row in threads_data:
+            date = row.date
+            thread_id = row.id
+            entry_count = entry_counts.get(thread_id, 0)
+            has_entry = entry_count > 0
+            has_metrics = row.metrics_id is not None
+
+            # Check if sleep metrics are present (all three fields)
+            has_sleep_metrics = (
+                has_metrics
+                and row.awoke_at is not None
+                and row.asleep_by is not None
+                and row.sleep_quality is not None
+            )
+
+            # Check if metrics are complete (sleep metrics + overall_mood)
+            has_complete_metrics = has_sleep_metrics and row.overall_mood is not None
+
+            calendar_data[date] = {
+                "has_entry": has_entry,
+                "has_metrics": has_metrics,
+                "has_sleep_metrics": has_sleep_metrics,
+                "has_complete_metrics": has_complete_metrics,
+            }
+
+        return calendar_data
+
     async def get_entry_by_id_with_thread(
         self, entry_id: uuid.UUID
     ) -> tuple[DecryptedEntryModel, "ThreadsModel"] | None:
@@ -223,10 +300,10 @@ class EntriesService(
         """
         data_manager_inst = self.data_manager(self.session, self.model)
         result = await data_manager_inst.get_entry_with_thread(entry_id)
-        
+
         if not result:
             return None
-        
+
         entry, thread = result
         # Decrypt the entry
         await self._prevent_sqlalch_tracking_entries_further([entry])

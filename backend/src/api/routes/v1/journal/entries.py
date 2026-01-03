@@ -170,7 +170,7 @@ async def get_calendar(
     end_date: dt.date = Query(..., description="End date of the range (inclusive)"),
 ) -> SingleItemResponse[list[CalendarEntrySchema]]:
     """
-    get calendar data for a date range, indicating which dates have entries
+    get calendar data for a date range, indicating which dates have entries and metrics status
     """
     validate_user_id_authorization(user_id, current_user)
     try:
@@ -181,17 +181,19 @@ async def get_calendar(
             )
 
         service = EntriesService(session)
-        dates_with_entries = await service.get_days_with_entries(
-            user_id, start_date, end_date
-        )
+        calendar_data = await service.get_calendar_data(user_id, start_date, end_date)
 
         calendar_entries = []
         current_date = start_date
         while current_date <= end_date:
+            date_data = calendar_data.get(current_date, {})
             calendar_entries.append(
                 CalendarEntrySchema(
                     date=current_date,
-                    has_entry=current_date in dates_with_entries,
+                    has_entry=date_data.get("has_entry", False),
+                    has_metrics=date_data.get("has_metrics", False),
+                    has_sleep_metrics=date_data.get("has_sleep_metrics", False),
+                    has_complete_metrics=date_data.get("has_complete_metrics", False),
                 )
             )
             current_date += dt.timedelta(days=1)

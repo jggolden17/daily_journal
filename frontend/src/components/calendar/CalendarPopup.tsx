@@ -53,6 +53,9 @@ export function CalendarPopup({ isOpen, onClose, selectedDate }: CalendarPopupPr
           response.data.map((entry) => ({
             date: entry.date,
             hasEntry: entry.hasEntry,
+            hasMetrics: entry.hasMetrics ?? false,
+            hasSleepMetrics: entry.hasSleepMetrics ?? false,
+            hasCompleteMetrics: entry.hasCompleteMetrics ?? false,
           }))
         );
       } else {
@@ -140,9 +143,9 @@ export function CalendarPopup({ isOpen, onClose, selectedDate }: CalendarPopupPr
     return `${year}-${month}-${day}`;
   };
 
-  const hasEntry = (date: Date): boolean => {
+  const getEntryData = (date: Date): CalendarEntry | undefined => {
     const dateStr = formatDate(date);
-    return entries.some((e) => e.date === dateStr && e.hasEntry);
+    return entries.find((e) => e.date === dateStr);
   };
 
   const handleDateClick = (date: Date) => {
@@ -221,7 +224,35 @@ export function CalendarPopup({ isOpen, onClose, selectedDate }: CalendarPopupPr
                 const dateStr = formatDate(date);
                 const isToday = dateStr === today;
                 const isSelected = dateStr === selectedDate;
-                const entryExists = hasEntry(date);
+                const entryData = getEntryData(date);
+                const hasEntry = entryData?.hasEntry ?? false;
+                const hasMetrics = entryData?.hasMetrics ?? false;
+                const hasSleepMetrics = entryData?.hasSleepMetrics ?? false;
+                const hasCompleteMetrics = entryData?.hasCompleteMetrics ?? false;
+
+                // Determine background color (priority: selected > complete > incomplete > default)
+                let bgColor = '';
+                if (isSelected) {
+                  bgColor = 'bg-blue-100 border-blue-600';
+                } else if (hasEntry && hasCompleteMetrics) {
+                  bgColor = 'bg-green-50';
+                } else if (hasEntry) {
+                  bgColor = 'bg-amber-50';
+                } else {
+                  bgColor = 'bg-white';
+                }
+
+                // Determine dot colors and display
+                // Entry dot: always green if hasEntry
+                const showEntryDot = hasEntry;
+                const entryDotColor = 'bg-green-500';
+                
+                // Dark gray dot: show if hasEntry but no metrics
+                const showNoMetricsDot = hasEntry && !hasMetrics;
+                
+                // Metrics dot: show if has sleep metrics (amber) or complete metrics (green)
+                const showMetricsDot = hasSleepMetrics || hasCompleteMetrics;
+                const metricsDotColor = hasCompleteMetrics ? 'bg-green-500' : 'bg-amber-500';
 
                 return (
                   <button
@@ -230,17 +261,25 @@ export function CalendarPopup({ isOpen, onClose, selectedDate }: CalendarPopupPr
                     className={`
                       aspect-square border rounded text-sm font-medium
                       transition-colors flex flex-col items-center justify-center
-                      ${isToday ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}
-                      ${isSelected ? 'bg-blue-100 border-blue-600' : ''}
-                      ${entryExists && !isSelected ? 'bg-green-50' : ''}
-                      ${!isSelected && !entryExists && !isToday ? 'bg-white' : ''}
+                      ${isToday ? 'border-blue-500' : 'border-gray-300'}
+                      ${bgColor}
                       hover:bg-gray-100
                     `}
                     type="button"
                   >
                     {date.getDate()}
-                    {entryExists && (
-                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-0.5" />
+                    {(showEntryDot || showNoMetricsDot || showMetricsDot) && (
+                      <div className="flex gap-0.5 mt-0.5">
+                        {showEntryDot && (
+                          <div className={`w-1.5 h-1.5 ${entryDotColor} rounded-full`} />
+                        )}
+                        {showNoMetricsDot && (
+                          <div className="w-1.5 h-1.5 bg-gray-600 rounded-full" />
+                        )}
+                        {showMetricsDot && (
+                          <div className={`w-1.5 h-1.5 ${metricsDotColor} rounded-full`} />
+                        )}
+                      </div>
                     )}
                   </button>
                 );
@@ -260,6 +299,9 @@ interface SingleItemResponse<T> {
 interface CalendarEntryResponse {
   date: string;
   hasEntry: boolean;
+  hasMetrics?: boolean;
+  hasSleepMetrics?: boolean;
+  hasCompleteMetrics?: boolean;
 }
 
 async function getUserId(): Promise<string> {
