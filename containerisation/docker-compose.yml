@@ -1,4 +1,3 @@
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -12,7 +11,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-localDbUser} -d ${DB_NAME:-journal_db}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-localDbUser} -d ${DB_NAME:-journal_db}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -67,8 +70,6 @@ services:
       - VITE_API_URL=http://localhost:8000
       - VITE_API_BACKEND_URL=http://backend:8000
       - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-}
-      - VITE_ENVIRONMENT=${VITE_ENVIRONMENT:-local}
 
 volumes:
   postgres_data:
-

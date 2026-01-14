@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-const isLocalEnvironment = import.meta.env.VITE_ENVIRONMENT === 'local';
+const isLocalEnvironment = !import.meta.env.PROD;
 
 export function LoginPage() {
   const navigate = useNavigate();

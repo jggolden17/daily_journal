@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { authApi, type User, MOCK_GOOGLE_ID_TOKEN } from '../api/auth';
 
-const isLocalEnvironment = import.meta.env.VITE_ENVIRONMENT === 'local';
+const isLocalEnvironment = !import.meta.env.PROD;
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
